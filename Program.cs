@@ -120,13 +120,13 @@ namespace Kompilyatory
             {
                 EXPR = new List<string>(),
                 TYPE = itemAST.Initialization.TYPE,
-            }; 
+            };
             if (targetType == typeof(int))
             {
                 switch (char.Parse(itemAST.Initialization.EXPR[2]))
                 {
                     case '+':
-                        tempAST.Initialization.EXPR.Add( (int.Parse(left) + int.Parse(right)).ToString());
+                        tempAST.Initialization.EXPR.Add((int.Parse(left) + int.Parse(right)).ToString());
                         tempAST.Initialization.EXPR.AddRange(itemAST.Initialization.EXPR.Skip(3));
                         return CalculatingTheValue(tempAST);
                     case '-':
@@ -140,6 +140,29 @@ namespace Kompilyatory
                         return CalculatingTheValue(tempAST);
                     case '*':
                         tempAST.Initialization.EXPR.Add((int.Parse(left) * int.Parse(right)).ToString());
+                        tempAST.Initialization.EXPR.AddRange(itemAST.Initialization.EXPR.Skip(3));
+                        return CalculatingTheValue(tempAST);
+                }
+            }
+            else if (targetType == typeof(float))
+            {
+                switch (char.Parse(itemAST.Initialization.EXPR[2]))
+                {
+                    case '+':
+                        tempAST.Initialization.EXPR.Add((float.Parse(left) + float.Parse(right)).ToString());
+                        tempAST.Initialization.EXPR.AddRange(itemAST.Initialization.EXPR.Skip(3));
+                        return CalculatingTheValue(tempAST);
+                    case '-':
+                        tempAST.Initialization.EXPR.Add((float.Parse(left) - float.Parse(right)).ToString());
+                        tempAST.Initialization.EXPR.AddRange(itemAST.Initialization.EXPR.Skip(3));
+                        return CalculatingTheValue(tempAST);
+                    case '/':
+                        try { tempAST.Initialization.EXPR.Add((float.Parse(left) / float.Parse(right)).ToString()); }
+                        catch (DivideByZeroException ex) { WriteWrong(ex.Message); }
+                        tempAST.Initialization.EXPR.AddRange(itemAST.Initialization.EXPR.Skip(3));
+                        return CalculatingTheValue(tempAST);
+                    case '*':
+                        tempAST.Initialization.EXPR.Add((float.Parse(left) * float.Parse(right)).ToString());
                         tempAST.Initialization.EXPR.AddRange(itemAST.Initialization.EXPR.Skip(3));
                         return CalculatingTheValue(tempAST);
                 }
