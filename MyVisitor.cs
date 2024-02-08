@@ -1,6 +1,7 @@
 ﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -10,52 +11,58 @@ namespace Kompilyatory
 {
     internal class MyVisitor : ExprBaseVisitor<IParseTree>
     {
-        static public dynamic InitNode = new List<Dictionary<string, Dictionary<string, Dictionary<string, string>>>>();
+        static public dynamic InitNode = new List<Dictionary<string, Dictionary<string, object>>>();
         public override IParseTree VisitInitialization([NotNull] ExprParser.InitializationContext context)
         {
             var name = context.ID() == null ? "" : context.ID().GetText();
             var type = context.TYPE() == null ? "" : context.TYPE().GetText();
             var value = context.expr() == null ? "" : context.expr().GetText();
 
+            exprStack = new Stack<string>();
+
+            //Console.WriteLine($"+-- Initialization (type: {type}, ID: {name})\n|\t|\n|\t+-- value  {value}");
+            this.VisitChildren(context);
+            
             InitNode.Add(
-            new Dictionary<string, Dictionary<string, Dictionary<string, string>>>
-                 {
+                new Dictionary<string, Dictionary<string, object>>()
+                {
                     {
-                        "stat", // Ключ "stat"
-                        new Dictionary<string, Dictionary<string, string>>()
+                        "initialization",
+                        new Dictionary<string, object>()
                         {
-                            {
-                                "Initialization",
-                                new Dictionary<string, string>()
-                                {
-                                    {"type", type},
-                                    {"ID", name},
-                                    {"expr", value },
-                                    {"END", context.END().ToString()}
-                                }
-                            }
+                            {"type", type},
+                            {"ID", name},
+                            {"expr", exprStack },
+                            {"END", context.END().ToString()}
                         }
                     }
-                 }
+                }
              );
 
-            Console.WriteLine($"+-- Initialization (type: {type}, ID: {name})\n|\t|\n|\t+-- value ({value})");
-            return this.VisitChildren(context);
+            return null;
         }
         //JsonConvert.SerializeObject(keys, Formatting.Indented
+        static public Stack<string> exprStack;
         public override IParseTree VisitExpr([NotNull] ExprParser.ExprContext context)
         {
-            var expression = context.children.Count == 3 ? context.children[1].ToString() : context.GetText();
-            Console.WriteLine($"|\t\t|+-- expr ---  {expression}");
+            var expression = "";
+            if (context.children.Count == 3 && context.children[0].ToString() != "(" ) expression = context.children[1].ToString();
+            else
+            {
+                if (context.children[0].ToString() != "(") expression = context.GetText();
+            }
+            if (expression != "")
+            {
+                exprStack.Push(expression);
 
-
-
+               // Console.WriteLine($"|\t\t|+-- expr ---  {expression}");
+            }
             return this.VisitChildren(context);
         }
 
         public override IParseTree VisitProg([NotNull] ExprParser.ProgContext context)
 {
-            Console.WriteLine("Prog\n|");
+            //Console.WriteLine("Prog\n|");
             return this.VisitChildren(context);
         }
 
