@@ -7,18 +7,35 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Antlr4.Runtime.Tree;
+using Newtonsoft.Json;
 
 namespace Kompilyatory
 {
     class Program
     {
-        static void KompFilesG4()
+        public class expr
         {
-            ProcessStartInfo psi;
-            psi = new ProcessStartInfo("cmd", @"/c java -jar antlr-4.9.3-complete.jar -Dlanguage=CSharp -visitor Expr.g4");
-            Process.Start(psi);
+
         }
-        static void Main(string[] args)
+        public class initialization
+        {
+            public string TYPE{  get; set; }
+            public string ID{ get; set; }
+            
+            public string END { get; set; }
+        }
+        public class stat
+        {
+            [JsonProperty("initialization")]
+            public initialization Initialization { get; set; }
+        }
+        public class AST
+        {
+            [JsonProperty("stat")]
+            public List<stat> Stats { get;set; }   
+        }
+        static public AST ast = new AST();
+         static private void Main(string[] args)
         {
 
             AntlrFileStream antlrInputStream = new AntlrFileStream("lang.txt",Encoding.UTF8) ;
@@ -33,8 +50,13 @@ namespace Kompilyatory
             
             MyVisitor visitor = new MyVisitor();
             visitor.Visit(tree);
-           
-            Console.WriteLine(tree.ToStringTree());
+
+            //Console.WriteLine(tree.ToStringTree());
+
+            string json = JsonConvert.SerializeObject(MyVisitor.InitNode, Formatting.Indented);
+
+            // Сохраняем JSON в файл
+            File.WriteAllText("ast.json", json);
         }
     }
 }
