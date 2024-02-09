@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Xml.Linq;
 
+
 namespace Kompilyatory
 {
     internal class MyVisitor : ExprBaseVisitor<IParseTree>
@@ -45,6 +46,12 @@ namespace Kompilyatory
         static public Stack<string> exprStack;
         public override IParseTree VisitExpr([NotNull] ExprParser.ExprContext context)
         {
+            //Console.WriteLine($"|\t\t|+-- expr --- ");
+            /*foreach (var item in context.children)
+            {
+                Console.WriteLine(item);
+            }*/
+            //Console.WriteLine("---------------");
             var expression = "";
             if (context.children.Count == 3 && context.children[0].ToString() != "(" ) expression = context.children[1].ToString();
             else
@@ -55,7 +62,6 @@ namespace Kompilyatory
             {
                 exprStack.Push(expression);
 
-               // Console.WriteLine($"|\t\t|+-- expr ---  {expression}");
             }
             return this.VisitChildren(context);
         }
