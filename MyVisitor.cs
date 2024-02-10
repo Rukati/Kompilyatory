@@ -12,7 +12,7 @@ namespace Kompilyatory
 {
     internal class MyVisitor : ExprBaseVisitor<IParseTree>
     {
-        static public dynamic InitNode = new List<Dictionary<string, Dictionary<string, object>>>();
+        static public dynamic InitNode = new List<Dictionary<string, Dictionary<string, Dictionary<string, object>>>>();
         public override IParseTree VisitInitialization([NotNull] ExprParser.InitializationContext context)
         {
             var name = context.ID() == null ? "" : context.ID().GetText();
@@ -25,17 +25,21 @@ namespace Kompilyatory
             this.VisitChildren(context);
             
             InitNode.Add(
-                new Dictionary<string, Dictionary<string, object>>()
-                {
-                    {
-                        "initialization",
-                        new Dictionary<string, object>()
+                new Dictionary<string,Dictionary<string, Dictionary<string, object>>> (){
+                    { "state",
+                        new Dictionary<string, Dictionary<string, object>>()
                         {
-                            {"type", type},
-                            {"ID", name},
-                            {"expr", exprStack },
-                            {"END", context.END().ToString()}
-                        }
+                            {
+                                "initialization",
+                                new Dictionary<string, object>()
+                                {
+                                    {"type", type},
+                                    {"ID", name},
+                                    {"expr", exprStack },
+                                    {"END", context.END().ToString()}
+                                }
+                            }
+                        } 
                     }
                 }
              );
