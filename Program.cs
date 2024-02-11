@@ -40,15 +40,13 @@ namespace Kompilyatory
 
                 visitor.Visit(tree);
 
-                //Console.WriteLine(tree.ToStringTree());
-
                 string json = JsonConvert.SerializeObject(InitNode, Formatting.Indented);
 
                 File.WriteAllText("ast.json", json);
 
                 ast = JsonConvert.DeserializeObject<List<AST>>(json);
 
-                LL.Gen(ast[0].State.Initialization);
+                LL.Gen();
             }
             else
             {

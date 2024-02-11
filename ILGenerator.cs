@@ -173,7 +173,7 @@ class LL
 
         return null;
     }
-    static public void Gen(initialization node)
+    static public void Gen()
     {
         LLVM.InitializeX86TargetInfo();
         LLVM.InitializeX86Target();
@@ -281,7 +281,6 @@ class LL
             }
         }
     }
-
     static private void _InstructionDisplay(string OutputString)
     {
         LLVMValueRef formatString = default;
@@ -300,37 +299,7 @@ class LL
             args = new LLVMValueRef[] { formatString, variableValue };
         }
 
-        //var formatString = LLVM.BuildGlobalStringPtr(builder, OutputString, "format_string");
-
         var getPuts = LLVM.GetNamedFunction(module, "printf");
         LLVM.BuildCall(builder, getPuts, args, "printf_call");
     }
 }
-
-/* static private void _InstructionDisplay(string OutputString)
-    {
-        var variable = LLVM.GetNamedGlobal(module, OutputString);
-        LLVMValueRef variableValue = default;
-        LLVMValueRef formatString = default;
-
-        if (variable.Pointer == IntPtr.Zero)
-        {
-            formatString = LLVM.BuildGlobalStringPtr(builder, $"{OutputString}\n", "format_string");
-
-        }
-        else
-        {
-            variableValue = LLVM.BuildLoad(builder, variable, "variable_value");
-            formatString = LLVM.BuildGlobalStringPtr(builder, "%d\n", "format_string");
-        }
-
-        var getPuts = LLVM.GetNamedFunction(module, "printf");
-
-        var putsArgs = new LLVMValueRef[] { formatString };
-        LLVM.BuildCall(builder, getPuts, putsArgs, "printf_call");
-
-    }
- * 
- * 
-
-*/
