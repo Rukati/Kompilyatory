@@ -18,6 +18,9 @@ namespace Kompilyatory
 {
     class Program
     {
+        static public List<Dictionary<string, Dictionary<string, Dictionary<string, object>>>> InitNode = new List<Dictionary<string, Dictionary<string, Dictionary<string, object>>>>();
+
+        [Obsolete]
         static private void Main(string[] args)
         {
             AntlrFileStream antlrInputStream = new AntlrFileStream("lang.txt",Encoding.UTF8) ;
@@ -27,7 +30,7 @@ namespace Kompilyatory
             CommonTokenStream commonToken = new CommonTokenStream(lexer);
 
             ExprParser parser = new ExprParser(commonToken);
-
+            
             IParseTree tree = parser.prog();
 
             MyVisitor visitor = new MyVisitor();
@@ -39,16 +42,22 @@ namespace Kompilyatory
 
                 //Console.WriteLine(tree.ToStringTree());
 
-                string json = JsonConvert.SerializeObject(MyVisitor.InitNode, Formatting.Indented);
+                string json = JsonConvert.SerializeObject(InitNode, Formatting.Indented);
 
                 File.WriteAllText("ast.json", json);
 
                 ast = JsonConvert.DeserializeObject<List<AST>>(json);
 
-                ILGenerator.GenerateIL(ast[0].State.Initialization);
-                
+                LL.Gen(ast[0].State.Initialization);
             }
-            
+            else
+            {
+                if (parser.NumberOfSyntaxErrors != 0)
+                    WriteWrong("Parser error");
+
+            }
+
+
         }
         public  class initialization
         {
@@ -70,8 +79,16 @@ namespace Kompilyatory
         {
             [JsonProperty("initialization")]
             public initialization Initialization { get; set; }
+            [JsonProperty("writeln")]
+            public write Print {  get; set; }
         }
-
+        public class write
+        {
+            [JsonProperty("value")]
+            public List<string> VALUE { get; set; }
+            [JsonProperty("type")]
+            public string TYPE { get; set; }
+        }
         static public List<AST> ast = new List<AST>();
 
         static public void WriteCorect(string text)
