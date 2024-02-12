@@ -8,32 +8,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Configuration;
 using System.Reflection.Metadata;
+using Newtonsoft.Json.Linq;
+using System.Diagnostics.Eventing.Reader;
+using System.Globalization;
+using System.ComponentModel;
+using Kompilyatory;
 class LL
 {
     private static LLVMContextRef context = LLVM.ContextCreate();
     private static LLVMBuilderRef builder = LLVM.CreateBuilderInContext(context);
     private static LLVMModuleRef module = LLVM.ModuleCreateWithName("RUKATICOMPILATOREZSYSHARP");
 
-    static private List<string> CalculatingTheExpression(AST itemAST, string state = "initialization")
-    {
-        string type = "";
-        List<string> expr = new List<string>();
-
-        switch (state)
-        {
-            case "print":
-                type = "int";
-                expr = itemAST.State.Print.VALUE;
-                break;
-            case "initialization":
-                type = "int";
-                expr = itemAST.State.Initialization.EXPR;
-                break;
-        }
-        if (expr.Count == 1) return expr;
-        if (expr.Count == 0) WriteWrong($"An uninitialized variable was used: {itemAST.State.Initialization.ID}");
-
-
+    static private List<string> CalculatingTheExpression(List<string> expr, string type = "int")
+    { 
+        if (expr.Count == 1 && char.IsDigit(expr[0][0])) return expr;
+        if (expr.Count == 1 && !char.IsDigit(expr[0][0])) return ast.First(item => item.State.Initialization.ID == expr[0]).State.Initialization.EXPR;
+        if (expr.Count == 0) WriteWrong($"An uninitialized variable was used");
 
         int j;
         while (expr[2].Length >= 1 && Char.IsLetterOrDigit(char.Parse(expr[2][0].ToString())))
@@ -53,7 +43,7 @@ class LL
             intervalExpr.State.Initialization.TYPE = type;
 
             expr.RemoveRange(k - 2, 3);
-            expr.Insert(k - 2, CalculatingTheExpression(intervalExpr)[0]);
+            expr.Insert(k - 2, CalculatingTheExpression(intervalExpr.State.Initialization.EXPR,type)[0]);
         }
 
         Type targetType = null;
@@ -82,7 +72,7 @@ class LL
                     var RNAME = ast.Any(item => item.State.Initialization.ID == expr[0]) ? ast.First(item => item.State.Initialization.ID == expr[0]) : null;
                     if (i == 0 && RNAME == null) // i = 0 -> ExceptionParse | RNAME = null -> ExceptionFind
                         WriteWrong($"The name \"  {expr[0]}  \" does not exist in the current context.");
-                    right = RNAME != null ? CalculatingTheExpression(RNAME)[0] : expr[0];
+                    right = RNAME != null ? CalculatingTheExpression(RNAME.State.Initialization.EXPR,type)[0] : expr[0];
                 }
                 catch (Exception ex) { WriteWrong($"The name \" {expr[0]} \" does not exist in the current context."); }
             }
@@ -95,7 +85,7 @@ class LL
                     var LNAME = ast.Any(item => item.State.Initialization.ID == expr[1]) ? ast.First(item => item.State.Initialization.ID == expr[1]) : null;
                     if (i == 0 && LNAME == null) // i = 0 -> ExceptionParse | LNAME = null -> ExceptionFind
                         WriteWrong($"The name \" {expr[1]} \" does not exist in the current context.");
-                    left = LNAME != null ? CalculatingTheExpression(LNAME)[0] : expr[1];
+                    left = LNAME != null ? CalculatingTheExpression(LNAME.State.Initialization.EXPR, type)[0] : expr[1];
                 }
                 catch (Exception ex) { WriteWrong($"The name \"{expr[1]}\" does not exist in the current context."); }
             }
@@ -107,44 +97,44 @@ class LL
                 case '+':
                     tempAST.State.Initialization.EXPR.Add((int.Parse(left) + int.Parse(right)).ToString());
                     tempAST.State.Initialization.EXPR.AddRange(expr.Skip(3));
-                    return CalculatingTheExpression(tempAST);
+                    return CalculatingTheExpression(tempAST.State.Initialization.EXPR, type);
                 case '-':
                     tempAST.State.Initialization.EXPR.Add((int.Parse(left) - int.Parse(right)).ToString());
                     tempAST.State.Initialization.EXPR.AddRange(expr.Skip(3));
-                    return CalculatingTheExpression(tempAST);
+                    return CalculatingTheExpression(tempAST.State.Initialization.EXPR, type);
                 case '/':
                     try { tempAST.State.Initialization.EXPR.Add((int.Parse(left) / int.Parse(right)).ToString()); }
                     catch (DivideByZeroException ex) { WriteWrong(ex.Message); }
                     tempAST.State.Initialization.EXPR.AddRange(expr.Skip(3));
-                    return CalculatingTheExpression(tempAST);
+                    return CalculatingTheExpression(tempAST.State.Initialization.EXPR, type);
                 case '*':
                     tempAST.State.Initialization.EXPR.Add((int.Parse(left) * int.Parse(right)).ToString());
                     tempAST.State.Initialization.EXPR.AddRange(expr.Skip(3));
-                    return CalculatingTheExpression(tempAST);
+                    return CalculatingTheExpression(tempAST.State.Initialization.EXPR, type);
             }
         }
         else if (targetType == typeof(float))
         {
             float i;
-            if (!float.TryParse(expr[0], out i))
+            if (!float.TryParse(expr[0], NumberStyles.Float, CultureInfo.InvariantCulture, out i))
             {
                 try {
                     var RNAME = ast.Any(item => item.State.Initialization.ID == expr[0]) ? ast.First(item => item.State.Initialization.ID == expr[0]) : null;
                     if (i == 0 && RNAME == null) // i = 0 -> ExceptionParse | RNAME = null -> ExceptionFind
                         WriteWrong($"The name \" {expr[0]} \" does not exist in the current context.");
-                    right = RNAME != null ? CalculatingTheExpression(RNAME)[0] : expr[0];
+                    right = RNAME != null ? CalculatingTheExpression(RNAME.State.Initialization.EXPR, type)[0] : expr[0];
                 } catch (Exception ex) { WriteWrong($"The name \"{expr[0]}\" does not exist in the current context."); }
             }
-            else right = expr[0]; ;
+            else right = expr[0]; 
 
-            if (!float.TryParse(expr[1], out i))
+            if (!float.TryParse(expr[1], NumberStyles.Float, CultureInfo.InvariantCulture, out i))
             {
                 try
                 {
                     var LNAME = ast.Any(item => item.State.Initialization.ID == expr[1]) ? ast.First(item => item.State.Initialization.ID == expr[1]) : null;
                     if (i == 0 && LNAME == null) // i = 0 -> ExceptionParse | LNAME = null -> ExceptionFind
                         WriteWrong($"The name \"  {expr[1]}  \" does not exist in the current context.");
-                    left = LNAME != null ? CalculatingTheExpression(LNAME)[0] : expr[1];
+                    left = LNAME != null ? CalculatingTheExpression(LNAME.State.Initialization.EXPR, type)[0] : expr[1];
                 } catch (Exception ex) { WriteWrong($"The name \"{expr[1]}\" does not exist in the current context."); }
             }
             else left = expr[1];
@@ -152,22 +142,22 @@ class LL
             switch (char.Parse(expr[2]))
             {
                 case '+':
-                    tempAST.State.Initialization.EXPR.Add((float.Parse(left) + float.Parse(right)).ToString());
+                    tempAST.State.Initialization.EXPR.Add((float.Parse(left, NumberStyles.Float, CultureInfo.InvariantCulture) + float.Parse(right, NumberStyles.Float, CultureInfo.InvariantCulture)).ToString());
                     tempAST.State.Initialization.EXPR.AddRange(expr.Skip(3));
-                    return CalculatingTheExpression(tempAST);
+                    return CalculatingTheExpression(tempAST.State.Initialization.EXPR, type);
                 case '-':
-                    tempAST.State.Initialization.EXPR.Add((float.Parse(left) - float.Parse(right)).ToString());
+                    tempAST.State.Initialization.EXPR.Add((float.Parse(left, NumberStyles.Float, CultureInfo.InvariantCulture) - float.Parse(right, NumberStyles.Float, CultureInfo.InvariantCulture)).ToString());
                     tempAST.State.Initialization.EXPR.AddRange(expr.Skip(3));
-                    return CalculatingTheExpression(tempAST);
+                    return CalculatingTheExpression(tempAST.State.Initialization.EXPR, type);
                 case '/':
-                    try { tempAST.State.Initialization.EXPR.Add((float.Parse(left) / float.Parse(right)).ToString()); }
+                    try { tempAST.State.Initialization.EXPR.Add((float.Parse(left, NumberStyles.Float, CultureInfo.InvariantCulture) / float.Parse(right, NumberStyles.Float, CultureInfo.InvariantCulture)).ToString()); }
                     catch (DivideByZeroException ex) { WriteWrong(ex.Message); }
                     tempAST.State.Initialization.EXPR.AddRange(expr.Skip(3));
-                    return CalculatingTheExpression(tempAST);
+                    return CalculatingTheExpression(tempAST.State.Initialization.EXPR, type);
                 case '*':
-                    tempAST.State.Initialization.EXPR.Add((float.Parse(left) * float.Parse(right)).ToString());
+                    tempAST.State.Initialization.EXPR.Add((float.Parse(left, NumberStyles.Float, CultureInfo.InvariantCulture) * float.Parse(right, NumberStyles.Float, CultureInfo.InvariantCulture)).ToString());
                     tempAST.State.Initialization.EXPR.AddRange(expr.Skip(3));
-                    return CalculatingTheExpression(tempAST);
+                    return CalculatingTheExpression(tempAST.State.Initialization.EXPR, type);
             }
         }
 
@@ -191,9 +181,7 @@ class LL
 
         foreach (var item in ast)
         {
-            /*var constant = LLVM.ConstInt(LLVM.Int32Type(), item., new LLVMBool(0));
-            LLVM.BuildStore(builder, constant, variable);
-*/
+
             if (item.State.Initialization != null)
             {
                 LLVMTypeRef _lLVMType = default(LLVMTypeRef);
@@ -212,24 +200,33 @@ class LL
                         _lLVMType = LLVM.PointerType(LLVM.Int8Type(), 0);
                         break;
                 }
-         
+
                 if (item.State.Initialization.EXPR.Count >= 3)
                 {
-                    item.State.Initialization.EXPR = CalculatingTheExpression(item);
+                    item.State.Initialization.EXPR = CalculatingTheExpression(item.State.Initialization.EXPR);
                 }
                 if (item.State.Initialization.EXPR.Count == 1) _InstructionInitialization(_lLVMType, item.State.Initialization.ID, item.State.Initialization.EXPR[0]);
                 else _InstructionInitialization(_lLVMType, item.State.Initialization.ID);
             }
-            else if (item.State.Print != null)
+            else if (item.State.Writeln != null)
             {
-                if (item.State.Print.VALUE.Count >= 3)
-                    _InstructionDisplay($"{CalculatingTheExpression(item, "print")[0]}");
-                else _InstructionDisplay(item.State.Print.VALUE[0]);
+                foreach (var valuePrint in item.State.Writeln.VALUE)
+                {
+                    if (valuePrint.Exists(x => x.Keys.First() == "expr"))
+                    {
+                        var exprValue = valuePrint.Find(x => x.Keys.First() == "expr");
+                        _InstructionDisplay(CalculatingTheExpression(exprValue["expr"], exprValue["value"][0])[0], exprValue["value"][0]);
+                    }
+                    else _InstructionDisplay(valuePrint[0][valuePrint[0].Keys.First()][0], valuePrint[0].Keys.First());
+
+                }
+                /*if (item.State.Print.VALUE.Count >= 3)
+                    _InstructionDisplay($"{CalculatingTheExpression(item.State.Print.VALUE., "print")[0]}");
+                //else _InstructionDisplay(item.State.Print.VALUE[0]);*/
             }
-
-
-
-
+            else if (item.State.iF != null) _InstructionIF(item.State.iF, entry);
+            else if (item.State.whilE != null) _InstructionWHILE(item.State.whilE, entry);
+            else if (item.State.changeValue != null) _InstructionChangeValue(item.State.changeValue);
         }
 
         // Возвращаем 0
@@ -245,12 +242,255 @@ class LL
         LLVM.DisposeBuilder(builder);
         LLVM.DisposeModule(module);
         LLVM.ContextDispose(context);
-
     }
     static private Dictionary <string, LLVMValueRef> _valueLocaleVariable = new Dictionary<string, LLVMValueRef>();
+    static private void _InstructionChangeValue(ChangeValue StateInfo)
+    {   
+        
+    }
+    static private void _InstructionWHILE(WHILE stateWhile, LLVMBasicBlockRef entryBlock)
+    {
+        LLVMBasicBlockRef conditionBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder)), "while_cond");
+        LLVMBasicBlockRef loopBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder)), "while_loop");
+        LLVMBasicBlockRef endBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder)), "while_end");
+
+       
+        LLVM.BuildBr(builder, conditionBlock);
+
+        LLVM.PositionBuilderAtEnd(builder, conditionBlock);
+
+        LLVMValueRef leftValue = LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(CalculatingTheExpression(stateWhile.left)[0]), false);
+        LLVMValueRef rightValue = LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(CalculatingTheExpression(stateWhile.right)[0]), false);
+        LLVMValueRef comparison;
+
+        switch (stateWhile.Operator)
+        {
+            case "==":
+                comparison = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, leftValue, rightValue, "compare_eq");
+                break;
+            case "!=":
+                comparison = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, leftValue, rightValue, "compare_ne");
+                break;
+            default:
+                throw new System.Exception("Unsupported comparison operator");
+        }
+
+        LLVM.BuildCondBr(builder, comparison, loopBlock, endBlock);
+
+
+        LLVM.PositionBuilderAtEnd(builder, loopBlock);
+        foreach (AST astNode in stateWhile.body)
+        {
+            if (astNode.State.Initialization != null)
+            {
+                LLVMTypeRef _lLVMType = default(LLVMTypeRef);
+                switch (astNode.State.Initialization.TYPE)
+                {
+                    case "int":
+                        _lLVMType = LLVMTypeRef.Int32Type();
+                        break;
+                    case "float":
+                        _lLVMType = LLVMTypeRef.FloatType();
+                        break;
+                    case "bool":
+                        _lLVMType = LLVMTypeRef.Int1Type();
+                        break;
+                    case "string":
+                        _lLVMType = LLVM.PointerType(LLVM.Int8Type(), 0);
+                        break;
+                }
+
+                if (astNode.State.Initialization.EXPR.Count >= 3)
+                {
+                    astNode.State.Initialization.EXPR = CalculatingTheExpression(astNode.State.Initialization.EXPR);
+                }
+                if (astNode.State.Initialization.EXPR.Count == 1)
+                {
+                    _InstructionInitialization(_lLVMType, astNode.State.Initialization.ID, astNode.State.Initialization.EXPR[0]);
+                }
+                else
+                {
+                    _InstructionInitialization(_lLVMType, astNode.State.Initialization.ID);
+                }
+            }
+            else if (astNode.State.Writeln != null)
+            {
+                foreach (var valuePrint in astNode.State.Writeln.VALUE)
+                {
+                    if (valuePrint.Exists(x => x.Keys.First() == "expr"))
+                    {
+                        var exprValue = valuePrint.Find(x => x.Keys.First() == "expr");
+                        _InstructionDisplay(CalculatingTheExpression(exprValue["expr"], exprValue["value"][0])[0], exprValue["value"][0]);
+                    }
+                    else
+                    {
+                        _InstructionDisplay(valuePrint[0][valuePrint[0].Keys.First()][0], valuePrint[0].Keys.First());
+                    }
+                }
+            }
+            else if (astNode.State.iF != null) _InstructionIF(astNode.State.iF, loopBlock);
+            else if (astNode.State.whilE != null) _InstructionWHILE (astNode.State.whilE, loopBlock);
+        }
+        LLVM.BuildBr(builder, conditionBlock);
+
+        LLVM.PositionBuilderAtEnd(builder, endBlock);
+    }
+    static private void _InstructionIF(IF stateIf, LLVMBasicBlockRef entryBlock)
+    {
+        LLVMValueRef leftValue = LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(CalculatingTheExpression(stateIf.left)[0]), false);
+        LLVMValueRef rightValue = LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(CalculatingTheExpression(stateIf.right)[0]), false);
+
+        LLVMValueRef comparison;
+
+        switch (stateIf.Operator)
+        {
+            case "==":
+                comparison = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, leftValue, rightValue, "compare_eq");
+                break;
+            case "!=":
+                comparison = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, leftValue, rightValue, "compare_ne");
+                break;
+            default:
+                throw new System.Exception("Unsupported comparison operator");
+        }
+        LLVMBasicBlockRef currentBlock = LLVM.GetInsertBlock(builder);
+
+        LLVMBasicBlockRef ifTrue = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(currentBlock), "if_true");
+        LLVMBasicBlockRef ifFalse = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(currentBlock), "if_false");
+        LLVMBasicBlockRef EndBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(currentBlock), "endBlockIf");
+
+        LLVM.BuildCondBr(builder, comparison, ifTrue, ifFalse);
+
+        LLVM.PositionBuilderAtEnd(builder, ifTrue);
+        foreach (AST astNode in stateIf.body)
+        {
+            if (astNode.State.Initialization != null)
+            {
+                LLVMTypeRef _lLVMType = default(LLVMTypeRef);
+                switch (astNode.State.Initialization.TYPE)
+                {
+                    case "int":
+                        _lLVMType = LLVMTypeRef.Int32Type();
+                        break;
+                    case "float":
+                        _lLVMType = LLVMTypeRef.FloatType();
+                        break;
+                    case "bool":
+                        _lLVMType = LLVMTypeRef.Int1Type();
+                        break;
+                    case "string":
+                        _lLVMType = LLVM.PointerType(LLVM.Int8Type(), 0);
+                        break;
+                }
+
+                if (astNode.State.Initialization.EXPR.Count >= 3)
+                {
+                    astNode.State.Initialization.EXPR = CalculatingTheExpression(astNode.State.Initialization.EXPR);
+                }
+                if (astNode.State.Initialization.EXPR.Count == 1)
+                {
+                    _InstructionInitialization(_lLVMType, astNode.State.Initialization.ID, astNode.State.Initialization.EXPR[0]);
+                }
+                else
+                {
+                    _InstructionInitialization(_lLVMType, astNode.State.Initialization.ID);
+                }
+            }
+            else if (astNode.State.Writeln != null)
+            {
+                foreach (var valuePrint in astNode.State.Writeln.VALUE)
+                {
+                    if (valuePrint.Exists(x => x.Keys.First() == "expr"))
+                    {
+                        var exprValue = valuePrint.Find(x => x.Keys.First() == "expr");
+                        _InstructionDisplay(CalculatingTheExpression(exprValue["expr"], exprValue["value"][0])[0], exprValue["value"][0]);
+                    }
+                    else
+                    {
+                        _InstructionDisplay(valuePrint[0][valuePrint[0].Keys.First()][0], valuePrint[0].Keys.First());
+                    }
+                }
+            }
+            else if (astNode.State.iF != null)
+            {
+                _InstructionIF(astNode.State.iF, ifTrue);
+            }
+        }
+        LLVM.BuildBr(builder, EndBlock);
+        
+        LLVM.PositionBuilderAtEnd(builder, ifFalse);
+        foreach (AST astNode in stateIf.Else["body"])
+        {
+            if (astNode.State.Initialization != null)
+            {
+                LLVMTypeRef _lLVMType = default(LLVMTypeRef);
+                switch (astNode.State.Initialization.TYPE)
+                {
+                    case "int":
+                        _lLVMType = LLVMTypeRef.Int32Type();
+                        break;
+                    case "float":
+                        _lLVMType = LLVMTypeRef.FloatType();
+                        break;
+                    case "bool":
+                        _lLVMType = LLVMTypeRef.Int1Type();
+                        break;
+                    case "string":
+                        _lLVMType = LLVM.PointerType(LLVM.Int8Type(), 0);
+                        break;
+                }
+
+                if (astNode.State.Initialization.EXPR.Count >= 3)
+                {
+                    astNode.State.Initialization.EXPR = CalculatingTheExpression(astNode.State.Initialization.EXPR);
+                }
+                if (astNode.State.Initialization.EXPR.Count == 1)
+                {
+                    _InstructionInitialization(_lLVMType, astNode.State.Initialization.ID, astNode.State.Initialization.EXPR[0]);
+                }
+                else
+                {
+                    _InstructionInitialization(_lLVMType, astNode.State.Initialization.ID);
+                }
+            }
+            else if (astNode.State.Writeln != null)
+            {
+                foreach (var valuePrint in astNode.State.Writeln.VALUE)
+                {
+                    if (valuePrint.Exists(x => x.Keys.First() == "expr"))
+                    {
+                        var exprValue = valuePrint.Find(x => x.Keys.First() == "expr");
+                        _InstructionDisplay(CalculatingTheExpression(exprValue["expr"], exprValue["value"][0])[0], exprValue["value"][0]);
+                    }
+                    else
+                    {
+                        _InstructionDisplay(valuePrint[0][valuePrint[0].Keys.First()][0], valuePrint[0].Keys.First());
+                    }
+                }
+            }
+            else if (astNode.State.iF != null)
+            {
+                _InstructionIF(astNode.State.iF, ifTrue);
+            }
+        }
+        LLVM.BuildBr(builder, EndBlock);
+
+
+        LLVM.PositionBuilderAtEnd(builder, EndBlock);
+        //LLVM.BuildBr(builder, entryBlock);
+        //LLVM.PositionBuilderAtEnd(builder, ifFalse);
+        //_InstructionDisplay("False","line");
+        //LLVM.BuildBr(builder, entryBlock);
+
+        /* // Генерация кода для блока false
+        LLVM.PositionBuilderAtEnd(builder, falseBlock);
+        // Здесь можно добавить код, который будет выполняться в случае, если условие не выполнено
+        */
+    }
     static private void _InstructionInitialization(LLVMTypeRef typeRef, string name, string value = "")
     {
         var variable = LLVM.BuildAlloca(builder, typeRef, name);
+        _valueLocaleVariable.Add(name, default);
         if (!string.IsNullOrEmpty(value))
         {
             var typeKind = LLVM.GetTypeKind(typeRef);
@@ -271,35 +511,40 @@ class LL
                     }
                     else constant = LLVM.ConstInt(LLVM.Int32Type(), (ulong)parsedValue, new LLVMBool(0));
 
-                    // Сохранение значения в переменной
                     LLVM.BuildStore(builder, constant, variable);
 
-                    _valueLocaleVariable.Add(name, variable);
+                    _valueLocaleVariable[name] = variable;
                     break;
                 default:
                     break;
             }
         }
     }
-    static private void _InstructionDisplay(string OutputString)
+    static private void _InstructionDisplay(string OutputString,string TypeInpuutStr)
     {
         LLVMValueRef formatString = default;
         LLVMValueRef[] args = default;
 
-        if (!_valueLocaleVariable.TryGetValue(OutputString,out var variable))
+        if (TypeInpuutStr == "variable")
         {
-            formatString = LLVM.BuildGlobalStringPtr(builder, $"{OutputString}\n", "format_string");
-            args = new LLVMValueRef[] { formatString };
+            if (_valueLocaleVariable.TryGetValue(OutputString, out var variable) && variable.Pointer != IntPtr.Zero)
+            {
+                formatString = LLVM.BuildGlobalStringPtr(builder, "%d\n", $"Variable_{OutputString}_string");
+                var variableValue = LLVM.BuildLoad(builder, variable, "variable_value");
+                args = new LLVMValueRef[] { formatString, variableValue };
+            }
+            else
+            {
+                if (_valueLocaleVariable.ContainsKey(OutputString)) WriteWrong($"Uninitialized variable: {OutputString}");
+                else WriteWrong($"Unknown variable: {OutputString}");
+            }
         }
         else
         {
-           // variableValue = LLVM.BuildLoad(builder, variable, "variable_value");
-            formatString = LLVM.BuildGlobalStringPtr(builder, "%d\n", "format_string");
-            var variableValue = LLVM.BuildLoad(builder, variable, "variable_value");
-            args = new LLVMValueRef[] { formatString, variableValue };
+            formatString = LLVM.BuildGlobalStringPtr(builder, $"{OutputString}\n", $"Value_{OutputString}_string");
+            args = new LLVMValueRef[] { formatString };
         }
-
         var getPuts = LLVM.GetNamedFunction(module, "printf");
-        LLVM.BuildCall(builder, getPuts, args, "printf_call");
+        LLVM.BuildCall(builder, getPuts, args, $"printf_call_{OutputString}");
     }
 }

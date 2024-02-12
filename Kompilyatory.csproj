@@ -238,6 +238,7 @@
       <Visitor>True</Visitor>
     </Antlr4>
     <Compile Include="ILGenerator.cs" />
+    <Compile Include="MyErrorStrategy.cs" />
     <Compile Include="MyLexer.cs" />
     <Compile Include="MyParser.cs" />
     <None Include="bin\Debug\ast.json" />

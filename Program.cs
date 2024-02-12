@@ -34,7 +34,7 @@ namespace Kompilyatory
             IParseTree tree = parser.prog();
 
             MyVisitor visitor = new MyVisitor();
-            if (parser.NumberOfSyntaxErrors == 0)
+            if (parser.NumberOfSyntaxErrors == 0 )
             {
                 WriteCorect("Lexer and Parser completed successfully");
 
@@ -48,12 +48,7 @@ namespace Kompilyatory
 
                 LL.Gen();
             }
-            else
-            {
-                if (parser.NumberOfSyntaxErrors != 0)
-                    WriteWrong("Parser error");
-
-            }
+            
 
 
         }
@@ -65,8 +60,8 @@ namespace Kompilyatory
             public string ID { get; set; }
             [JsonProperty("expr")]
             public List<string> EXPR { get; set; }
-            [JsonProperty("END")]
-            public string END { get; set; }
+            /*[JsonProperty("END")]
+            public string END { get; set; }*/
         }
         public class AST
         {
@@ -78,14 +73,33 @@ namespace Kompilyatory
             [JsonProperty("initialization")]
             public initialization Initialization { get; set; }
             [JsonProperty("writeln")]
-            public write Print {  get; set; }
+            public write Writeln {  get; set; }
+            [JsonProperty("if")]
+            public IF iF { get; set; }
+            public WHILE whilE {get; set; }
+            public ChangeValue changeValue {  get; set; }
+        }
+        public class ChangeValue
+        {
+            public string ID { get; set; }
+            public string type{ get; set; }
+            public List<string> expr { get; set; }
+        }
+        public class WHILE : IF{ }
+        public class IF
+        {
+            public List<string> left { get; set; }
+            public List<string> right { get; set; }
+            [JsonProperty("operator")]
+            public string Operator { get; set; }
+            public List<AST> body { get; set; }
+            [JsonProperty("else")]
+            public Dictionary<string,List<AST>> Else { get; set; }
         }
         public class write
         {
             [JsonProperty("value")]
-            public List<string> VALUE { get; set; }
-            [JsonProperty("type")]
-            public string TYPE { get; set; }
+            public List<List<Dictionary<string,List<string>>>> VALUE { get; set; }
         }
         static public List<AST> ast = new List<AST>();
 
