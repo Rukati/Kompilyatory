@@ -82,7 +82,6 @@ namespace Kompilyatory
         public class ChangeValue
         {
             public string ID { get; set; }
-            public string type{ get; set; }
             public List<string> expr { get; set; }
         }
         public class WHILE : IF{ }

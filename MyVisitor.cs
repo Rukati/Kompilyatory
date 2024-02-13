@@ -45,7 +45,7 @@ namespace Kompilyatory
                                 {
                                     { "left", LeftExpr },
                                     { "right", RightExpr },
-                                    { "operator", context.equation().op.GetText() },
+                                    { "operator", context.equation().op.Text },
                                     { "body", whileBody },
                                 }
                             },
@@ -102,7 +102,7 @@ namespace Kompilyatory
                                 {
                                     { "left", LeftExpr },
                                     { "right", RightExpr },
-                                    { "operator", context.equation().op.GetText() },
+                                    { "operator", context.equation().op.Text },
                                     { "body", ifBody },
                                     { "else",
                                         new Dictionary<string,object>()
@@ -237,7 +237,6 @@ namespace Kompilyatory
                                 new Dictionary<string, object>()
                                 {
                                     {"ID", context.ID().GetText().Trim('$')},
-                                    { "type", context.TYPE() == null ? null : context.TYPE().GetText() },
                                     {"expr", StackNewValue },
                                     //{"END", context.END().ToString()}
                                 }
