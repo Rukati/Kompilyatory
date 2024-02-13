@@ -14,6 +14,7 @@ using System.Globalization;
 using System.ComponentModel;
 using Kompilyatory;
 using System.Xml.Linq;
+using Antlr4.Runtime.Dfa;
 class LL
 {
     private static LLVMContextRef context = LLVM.ContextCreate();
@@ -31,7 +32,7 @@ class LL
         if (expr.Count == 1)
         {
             expr[0] = expr[0].Replace(',', '.');
-            if (targetType == typeof(float) && float.TryParse(ContainsDecimal(expr[0]) ? expr[0] : expr[0] + ".0", NumberStyles.Float, CultureInfo.InvariantCulture, out float n))
+            if (int.TryParse(expr[0], out int k) ||( targetType == typeof(float) && float.TryParse(ContainsDecimal(expr[0]) ? expr[0] : expr[0] + ".0", NumberStyles.Float, CultureInfo.InvariantCulture, out float n)))
                 return expr;
             else if (char.IsLetter(expr[0][0]))
                 return ast.First(item => item.State.Initialization.ID == expr[0]).State.Initialization.EXPR;
@@ -286,9 +287,7 @@ class LL
                 var NowValueIntVariable = LLVM.BuildLoad(builder, _valueLocaleVariable[StateInfo.ID], $"{StateInfo.ID}_value");
                 var changeValueInt = LLVM.BuildAdd(builder, constInt, NowValueIntVariable, "changeValue");
                 LLVM.BuildStore(builder, changeValueInt, _valueLocaleVariable[StateInfo.ID]);
-                //LLVM.BuildStore(builder, newValueInt, _valueLocaleVariable[StateInfo.ID]);
-                //LLVM.BuildLoad(builder, _valueLocaleVariable[StateInfo.ID], "VariableWithNewValue");
-                variable.EXPR[0] = differenceValue.ToString();
+                ast.First(x => x.State.Initialization.ID == StateInfo.ID).State.Initialization.EXPR[0] = differenceValue.ToString();
                 break;
             case LLVMTypeKind.LLVMFloatTypeKind:
 
@@ -308,8 +307,7 @@ class LL
                 var NowValueFloatVariable = LLVM.BuildLoad(builder, _valueLocaleVariable[StateInfo.ID], $"{StateInfo.ID}_value");
                 var changeValue = LLVM.BuildAdd(builder, constFloat, NowValueFloatVariable, "changeValue");
                 LLVM.BuildStore(builder, changeValue, _valueLocaleVariable[StateInfo.ID]);
-                //LLVM.BuildStore(builder, newValueFloat, _valueLocaleVariable[StateInfo.ID]);
-                variable.EXPR[0] = differenceValueFloat.ToString();
+                ast.First(x => x.State.Initialization.ID == StateInfo.ID).State.Initialization.EXPR[0] = differenceValueFloat.ToString();
                 break;
             default:
                 break;
@@ -320,33 +318,114 @@ class LL
         LLVMBasicBlockRef conditionBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder)), "while_cond");
         LLVMBasicBlockRef loopBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder)), "while_loop");
         LLVMBasicBlockRef endBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder)), "while_end");
-
        
         LLVM.BuildBr(builder, conditionBlock);
 
         LLVM.PositionBuilderAtEnd(builder, conditionBlock);
 
-        LLVMValueRef leftValue = LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(CalculatingTheExpression(stateWhile.left)[0]), false);
-        LLVMValueRef rightValue = LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(CalculatingTheExpression(stateWhile.right)[0]), false);
-        LLVMValueRef comparison = default(LLVMValueRef);
+        LLVMValueRef leftVariable = default(LLVMValueRef);
+        LLVMValueRef rightVariable = default(LLVMValueRef);
+        
 
+        if (stateWhile.left.Count == 1)
+        {
+            LLVMValueRef constInt;
+            if (_valueLocaleVariable.TryGetValue(stateWhile.left[0], out leftVariable))
+                leftVariable = LLVM.BuildLoad(builder, leftVariable, "LeftValueInCompare");
+            else
+            {
+                if (stateWhile.left[0][0] == '-')
+                {
+                    var zeroValue = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(0));
+                    var absoluteValue = LLVM.ConstInt(LLVM.Int32Type(), (ulong)Math.Abs(long.Parse(stateWhile.left[0])), new LLVMBool(0));
+
+                    constInt = LLVM.BuildSub(builder, zeroValue, absoluteValue, "negative_value");
+                }
+                else constInt = LLVM.ConstInt(LLVM.Int32Type(), (ulong)long.Parse(stateWhile.left[0]), new LLVMBool(0));
+                leftVariable = LLVM.BuildAlloca(builder, LLVM.Int32Type(), "LeftVariableInit");
+                LLVM.BuildStore(builder, constInt, leftVariable);
+                leftVariable = LLVM.BuildLoad(builder, leftVariable, "LeftValueInCompare");
+            }
+        }
+        else
+        {
+            LLVMValueRef constInt;
+            long parsedValueInt = long.Parse(CalculatingTheExpression(stateWhile.left)[0]);
+            if (stateWhile.left[0][0] == '-')
+            {
+                var zeroValue = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(0));
+                var absoluteValue = LLVM.ConstInt(LLVM.Int32Type(), (ulong)Math.Abs(parsedValueInt), new LLVMBool(0));
+
+                constInt = LLVM.BuildSub(builder, zeroValue, absoluteValue, "negative_value");
+            }
+            else constInt = LLVM.ConstInt(LLVM.Int32Type(), (ulong)parsedValueInt, new LLVMBool(0));
+            if (_valueLocaleVariable.TryGetValue(stateWhile.left[0], out leftVariable))
+                leftVariable = LLVM.BuildLoad(builder, leftVariable, "LeftValueInCompare");
+            else
+            {
+                leftVariable = LLVM.BuildAlloca(builder, LLVM.Int32Type(), "LeftVariableInit");
+                LLVM.BuildStore(builder, constInt, leftVariable);
+                leftVariable = LLVM.BuildLoad(builder, leftVariable, "LeftValueInCompare");
+            }
+        }
+        if (stateWhile.right.Count == 1)
+        {
+            LLVMValueRef constInt;
+            if (_valueLocaleVariable.TryGetValue(stateWhile.right[0], out rightVariable))
+                rightVariable = LLVM.BuildLoad(builder, rightVariable, "RightValueInCompare");
+            else
+            {
+                if (stateWhile.right[0][0] == '-')
+                {
+                    var zeroValue = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(0));
+                    var absoluteValue = LLVM.ConstInt(LLVM.Int32Type(), (ulong)Math.Abs(long.Parse(stateWhile.right[0])), new LLVMBool(0));
+
+                    constInt = LLVM.BuildSub(builder, zeroValue, absoluteValue, "negative_value");
+                }
+                else constInt = LLVM.ConstInt(LLVM.Int32Type(), (ulong)long.Parse(stateWhile.right[0]), new LLVMBool(0));
+                rightVariable = LLVM.BuildAlloca(builder, LLVM.Int32Type(), "RighVariableInit");
+                LLVM.BuildStore(builder, constInt, rightVariable);
+                rightVariable = LLVM.BuildLoad(builder, rightVariable, "RightValueInCompare");
+            }
+        }
+        else
+        {
+            LLVMValueRef constInt;
+            long parsedValueInt = long.Parse(CalculatingTheExpression(stateWhile.right)[0]);
+            if (stateWhile.right[0][0] == '-')
+            {
+                var zeroValue = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(0));
+                var absoluteValue = LLVM.ConstInt(LLVM.Int32Type(), (ulong)Math.Abs(parsedValueInt), new LLVMBool(0));
+
+                constInt = LLVM.BuildSub(builder, zeroValue, absoluteValue, "negative_value");
+            }
+            else constInt = LLVM.ConstInt(LLVM.Int32Type(), (ulong)parsedValueInt, new LLVMBool(0));
+            if (_valueLocaleVariable.TryGetValue(stateWhile.right[0], out rightVariable))
+                rightVariable = LLVM.BuildLoad(builder, rightVariable, "RifgtValueInCompare");
+            else
+            {
+                rightVariable = LLVM.BuildAlloca(builder, LLVM.Int32Type(), "RighVariableInit");
+                LLVM.BuildStore(builder, constInt, rightVariable);
+                rightVariable = LLVM.BuildLoad(builder, rightVariable, "RightValueInCompare");
+            }
+        }
+        LLVMValueRef icmpVariable = default(LLVMValueRef);
         switch (stateWhile.Operator)
         {
             case "==":
-                comparison = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, leftValue, rightValue, "compare_eq");
+                icmpVariable = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntEQ, leftVariable, rightVariable, "compare_eq");
                 break;
             case "!=":
-                comparison = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, leftValue, rightValue, "compare_ne");
+                icmpVariable = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntNE, leftVariable, rightVariable, "compare_ne");
                 break;
             case "<":
-                comparison = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSLT, leftValue, rightValue, "compare_lt");
+                icmpVariable = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSLT, leftVariable, rightVariable, "compare_lt");
                 break;
             case ">":
-                comparison = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSGT, leftValue, rightValue, "compare_gt");
+                icmpVariable = LLVM.BuildICmp(builder, LLVMIntPredicate.LLVMIntSGT, leftVariable, rightVariable, "compare_gt");
                 break;
         }
-
-        LLVM.BuildCondBr(builder, comparison, loopBlock, endBlock);
+        LLVM.BuildCondBr(builder, icmpVariable, loopBlock, endBlock);
 
         LLVM.PositionBuilderAtEnd(builder, loopBlock);
         foreach (AST astNode in stateWhile.body)
@@ -371,7 +450,7 @@ class LL
             else if (astNode.State.iF != null) _InstructionIF(astNode.State.iF, entryBlock);
             else if (astNode.State.changeValue != null) _InstructionChangeValue(astNode.State.changeValue);
         }
-        LLVM.BuildBr(builder, conditionBlock);
+        LLVM.BuildBr(builder,conditionBlock);
 
         LLVM.PositionBuilderAtEnd(builder, endBlock);
     }
@@ -380,7 +459,7 @@ class LL
         LLVMValueRef leftValue = LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(CalculatingTheExpression(stateIf.left)[0]), false);
         LLVMValueRef rightValue = LLVM.ConstInt(LLVM.Int32Type(), ulong.Parse(CalculatingTheExpression(stateIf.right)[0]), false);
 
-        LLVMValueRef comparison;
+        LLVMValueRef comparison = default(LLVMValueRef);
 
         switch (stateIf.Operator)
         {
