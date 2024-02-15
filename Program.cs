@@ -12,6 +12,7 @@ using System.ComponentModel;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
+using LLVMSharp;
 
 
 namespace Kompilyatory
@@ -60,13 +61,34 @@ namespace Kompilyatory
             public string ID { get; set; }
             [JsonProperty("expr")]
             public List<string> EXPR { get; set; }
-            /*[JsonProperty("END")]
-            public string END { get; set; }*/
+            public LLVMValueRef ValueRef { get; set; }
         }
         public class AST
         {
             [JsonProperty("state")]
             public state State { get; set; }
+            public void HandlingStatus(LLVMBasicBlockRef entry)
+            {
+                if (State.Initialization != null) LL._InstructionInitialization(State.Initialization);
+                else if (State.Writeln != null)
+                {
+                    foreach (var valuePrint in State.Writeln.VALUE)
+                    {
+                        if (valuePrint.Exists(x => x.Keys.First() == "expr"))
+                        {
+                            var exprValue = valuePrint.Find(x => x.Keys.First() == "expr");
+                            LL._InstructionDisplay(LL.CalculatingTheExpression(exprValue["expr"], exprValue["value"][0])[0], exprValue["value"][0]);
+                        }
+                        else LL._InstructionDisplay(valuePrint[0][valuePrint[0].Keys.First()][0], valuePrint[0].Keys.First());
+
+                    }
+                }
+                else if (State.iF != null) LL._InstructionIF(State.iF, entry);
+                else if (State.whilE != null) LL._InstructionWHILE(State.whilE, entry);
+                else if (State.changeValue != null) LL._InstructionChangeValue(State.changeValue);
+                else if (State.doWhile != null) LL._InstructionDoWhile(State.doWhile, entry);
+                else if (State.FOR != null) LL._InstructionFor(State.FOR, entry);
+            }
         }
         public class state
         {
@@ -78,6 +100,29 @@ namespace Kompilyatory
             public IF iF { get; set; }
             public WHILE whilE {get; set; }
             public ChangeValue changeValue {  get; set; }
+            [JsonProperty("DoWhile")]
+            public doWhile doWhile { get; set; }
+            [JsonProperty("for")]
+            public FOR FOR { get; set; }
+        }
+        public class FOR
+        {
+            [JsonProperty("equation")]
+            public equation Equation { get; set; }
+            [JsonProperty("init")]
+            public initialization Init {  get; set; }
+            [JsonProperty("changeValue")]
+            public ChangeValue changeValue { get; set; }
+            public List<AST> body { get; set; }
+            public class equation
+            {
+                [JsonProperty("left")]
+                public List<string> left {  get; set; }
+                [JsonProperty("right")]
+                public List<string> right { get; set; }
+                [JsonProperty("operator")]
+                public string Operator { get; set; }
+            }
         }
         public class ChangeValue
         {
@@ -85,6 +130,7 @@ namespace Kompilyatory
             public List<string> expr { get; set; }
         }
         public class WHILE : IF{ }
+        public class doWhile : IF { }
         public class IF
         {
             public List<string> left { get; set; }

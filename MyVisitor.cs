@@ -13,24 +13,31 @@ namespace Kompilyatory
 {
     internal class MyVisitor : ExprBaseVisitor<IParseTree>
     {
+        private void BuildBody(ref List<object> body, [NotNull] ExprParser.StatContext[] context)
+        {
+            foreach (var item in context)
+            {
+                if (item.print() != null)
+                    body.Add(BodyPrint(item.print()));
+                else if (item.initialization() != null)
+                    body.Add(BodyInit(item.initialization()));
+                else if (item.@if() != null)
+                    body.Add(BodyIf(item.@if()));
+                else if (item.@while() != null)
+                    body.Add(BodyWhile(item.@while()));
+                else if (item.changeValue() != null)
+                    body.Add(ChangeValue(item.changeValue()));
+                else if (item.@for() != null)
+                    body.Add(BodyFor(item.@for()));
+            }
+        }
         private object BodyWhile([NotNull] ExprParser.WhileContext context, bool Node = false)
         {
             List<object> whileBody = new List<object>();
             Stack<string> LeftExpr = new Stack<string>();
             Stack<string> RightExpr = new Stack<string>();
-            foreach (var item in context.whileBody().stat())
-            {
-                if (item.print() != null)
-                    whileBody.Add(BodyPrint(item.print()));
-                else if (item.initialization() != null)
-                    whileBody.Add(BodyInit(item.initialization()));
-                else if (item.@if() != null)
-                    whileBody.Add(BodyIf(item.@if()));
-                else if (item.@while() != null)
-                    whileBody.Add(BodyWhile(item.@while()));
-                else if (item.changeValue() != null)
-                    whileBody.Add(NewValue(item.changeValue()));
-            }
+
+            BuildBody(ref whileBody, context.whileBody().stat());
 
             BodyExpr(ref LeftExpr, context.equation().expr()[0]);
             BodyExpr(ref RightExpr, context.equation().expr()[1]);
@@ -63,32 +70,11 @@ namespace Kompilyatory
             List<object> elseBody = new List<object>();
             Stack<string> LeftExpr = new Stack<string>();
             Stack<string> RightExpr = new Stack<string>();
-          
-            foreach (var item in context.ifBody().stat())
-            {
-                if (item.print() != null)
-                    ifBody.Add(BodyPrint(item.print()));
-                else if (item.initialization() != null)
-                    ifBody.Add(BodyInit(item.initialization()));
-                else if (item.@if() != null)
-                    ifBody.Add(BodyIf(item.@if()));
-                else if (item.changeValue() != null)
-                    ifBody.Add(NewValue(item.changeValue()));
-            }
+
+            BuildBody(ref ifBody, context.ifBody().stat());
             if (context.elseBody() != null)
-            {
-                foreach (var item in context.elseBody().stat())
-                {
-                    if (item.print() != null)
-                        elseBody.Add(BodyPrint(item.print()));
-                    else if (item.initialization() != null)
-                        elseBody.Add(BodyInit(item.initialization()));
-                    else if (item.@if() != null)
-                        elseBody.Add(BodyIf(item.@if()));
-                    else if (item.changeValue() != null)
-                        elseBody.Add(NewValue(item.changeValue()));
-                }
-            }
+                BuildBody(ref elseBody, context.elseBody().stat());
+
             BodyExpr(ref LeftExpr, context.equation().expr()[0]);
             BodyExpr(ref RightExpr, context.equation().expr()[1]);
 
@@ -223,7 +209,7 @@ namespace Kompilyatory
             VisitExpr(context);
             Expr = exprStack;
         }
-        private object NewValue([NotNull] ExprParser.ChangeValueContext context, bool Node = false)
+        private object ChangeValue([NotNull] ExprParser.ChangeValueContext context, bool Node = false)
         {
             Stack<string> StackNewValue = new Stack<string>();
             BodyExpr(ref StackNewValue, context.expr());
@@ -244,17 +230,123 @@ namespace Kompilyatory
                         }
                     }
                 };
-            if (Node)
-                Program.InitNode.Add(StateNewValue);
-            else
-            {
-                return StateNewValue;
-            }
+            if (Node) Program.InitNode.Add(StateNewValue);
+            else return StateNewValue;
+            return null;
+        }
+        private object BodyDoWhile([NotNull] ExprParser.DoWhileContext context, bool Node = false)
+        {
+            List<object> DoWhileBody = new List<object>();
+            Stack<string> LeftExpr = new Stack<string>();
+            Stack<string> RightExpr = new Stack<string>();
+            
+            BuildBody(ref DoWhileBody, context.whileBody().stat());
+
+            BodyExpr(ref LeftExpr, context.equation().expr()[0]);
+            BodyExpr(ref RightExpr, context.equation().expr()[1]);
+
+            var StateDoWhile = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
+                    { "state",
+                        new Dictionary<string, Dictionary<string, object>>()
+                        {
+                            {
+                                "DoWhile",
+                                new Dictionary<string, object>()
+                                {
+                                    { "left", LeftExpr },
+                                    { "right", RightExpr },
+                                    { "operator", context.equation().op.Text },
+                                    { "body", DoWhileBody },
+                                }
+                            },
+                        }
+                    }
+                };
+
+            if (Node) Program.InitNode.Add(StateDoWhile);
+            else return StateDoWhile;
+            return null;
+        }
+        private object BodyFor([NotNull] ExprParser.ForContext context, bool Node = false)
+        {
+            Stack<string> LeftExpr = new Stack<string>();
+            Stack<string> RightExpr = new Stack<string>();
+
+            BodyExpr(ref LeftExpr, context.equation().expr()[0]);
+            BodyExpr(ref RightExpr, context.equation().expr()[1]);
+
+            var name = context.for_init().ID() == null ? "" : context.for_init().ID().GetText();
+            var type = context.for_init().TYPE() == null ? "" : context.for_init().TYPE().GetText();
+
+            exprStack = new Stack<string>();
+            
+            Stack<string> StackNewValue = new Stack<string>();
+            BodyExpr(ref StackNewValue, context.changeValue().expr());
+            BodyExpr(ref exprStack, context.for_init().expr());
+
+            List<object> forBody = new List<object>();
+
+            BuildBody(ref forBody,context.for_body().stat());
+            var StateWhile = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
+                    { "state",
+                        new Dictionary<string, Dictionary<string, object>>()
+                        {
+                            {
+                                "for",
+                                new Dictionary<string, object>()
+                                {
+                                    {
+                                        "equation",
+                                        new Dictionary<string,object>
+                                        {
+                                            { "left", LeftExpr },
+                                            { "right", RightExpr },
+                                            { "operator", context.equation().op.Text }
+                                        }
+                                    },
+                                    {
+                                        "init",
+                                        new Dictionary<string, object>()
+                                        {
+                                            {"type", type},
+                                            {"ID", name},
+                                            {"expr", exprStack }
+                                        }
+                                    },
+                                    {
+                                        "changeValue",
+                                        new Dictionary<string, object>()
+                                        {
+                                            {"ID", context.changeValue().ID().GetText()},
+                                            {"expr", StackNewValue},
+                                        }
+                                    },
+                                    {
+                                        "body",forBody
+                                    }
+                                }
+                            },
+                        }
+                    }
+                };
+
+            if (Node) Program.InitNode.Add(StateWhile);
+            else return StateWhile;
+            return null;
+        }
+        public override IParseTree VisitFor([NotNull] ExprParser.ForContext context)
+        {
+            BodyFor(context, true);
+            return null;
+        }
+        public override IParseTree VisitDoWhile([NotNull] ExprParser.DoWhileContext context)
+        {
+            BodyDoWhile(context, true);
             return null;
         }
         public override IParseTree VisitChangeValue([NotNull] ExprParser.ChangeValueContext context)
         {
-            NewValue(context, true);
+            ChangeValue(context, true);
             return null;
         }
         public override IParseTree VisitChildren([NotNull] IRuleNode node)
