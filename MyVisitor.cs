@@ -31,18 +31,18 @@ namespace Kompilyatory
                     body.Add(BodyFor(item.@for()));
             }
         }
-        private object BodyWhile([NotNull] ExprParser.WhileContext context, bool Node = false)
+        private object BodyWhile([NotNull] ExprParser.WhileContext context, bool node = false)
         {
             List<object> whileBody = new List<object>();
-            Stack<string> LeftExpr = new Stack<string>();
-            Stack<string> RightExpr = new Stack<string>();
+            Stack<string> leftExpr = new Stack<string>();
+            Stack<string> rightExpr = new Stack<string>();
 
             BuildBody(ref whileBody, context.whileBody().stat());
 
-            BodyExpr(ref LeftExpr, context.equation().expr()[0]);
-            BodyExpr(ref RightExpr, context.equation().expr()[1]);
+            BodyExpr(ref leftExpr, context.equation().expr()[0]);
+            BodyExpr(ref rightExpr, context.equation().expr()[1]);
 
-            var StateWhile = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
+            var stateWhile = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
                     { "state",
                         new Dictionary<string, Dictionary<string, object>>()
                         {
@@ -50,8 +50,8 @@ namespace Kompilyatory
                                 "while",
                                 new Dictionary<string, object>()
                                 {
-                                    { "left", LeftExpr },
-                                    { "right", RightExpr },
+                                    { "left", leftExpr },
+                                    { "right", rightExpr },
                                     { "operator", context.equation().op.Text },
                                     { "body", whileBody },
                                 }
@@ -60,25 +60,25 @@ namespace Kompilyatory
                     }
                 };
 
-            if (Node) Program.InitNode.Add(StateWhile);
-            else return StateWhile;
+            if (node) Program.InitNode.Add(stateWhile);
+            else return stateWhile;
             return null;
         }
-        private object BodyIf([NotNull] ExprParser.IfContext context, bool Node = false)
+        private object BodyIf([NotNull] ExprParser.IfContext context, bool node = false)
         {
             List<object> ifBody = new List<object>();
             List<object> elseBody = new List<object>();
-            Stack<string> LeftExpr = new Stack<string>();
-            Stack<string> RightExpr = new Stack<string>();
+            Stack<string> leftExpr = new Stack<string>();
+            Stack<string> rightExpr = new Stack<string>();
 
             BuildBody(ref ifBody, context.ifBody().stat());
             if (context.elseBody() != null)
                 BuildBody(ref elseBody, context.elseBody().stat());
 
-            BodyExpr(ref LeftExpr, context.equation().expr()[0]);
-            BodyExpr(ref RightExpr, context.equation().expr()[1]);
+            BodyExpr(ref leftExpr, context.equation().expr()[0]);
+            BodyExpr(ref rightExpr, context.equation().expr()[1]);
 
-            var StateIfElse = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
+            var stateIfElse = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
                     { "state",
                         new Dictionary<string, Dictionary<string, object>>()
                         {
@@ -86,8 +86,8 @@ namespace Kompilyatory
                                 "if",
                                 new Dictionary<string, object>()
                                 {
-                                    { "left", LeftExpr },
-                                    { "right", RightExpr },
+                                    { "left", leftExpr },
+                                    { "right", rightExpr },
                                     { "operator", context.equation().op.Text },
                                     { "body", ifBody },
                                     { "else",
@@ -102,19 +102,19 @@ namespace Kompilyatory
                     }
                 };
 
-            if (Node) Program.InitNode.Add(StateIfElse);
-            else return StateIfElse;
+            if (node) Program.InitNode.Add(stateIfElse);
+            else return stateIfElse;
             return null;
         }
-        private object BodyInit([NotNull] ExprParser.InitializationContext context, bool Node = false)
+        private object BodyInit([NotNull] ExprParser.InitializationContext context, bool node = false)
         {
             var name = context.ID() == null ? "" : context.ID().GetText();
             var type = context.TYPE() == null ? "" : context.TYPE().GetText();
 
-            exprStack = new Stack<string>();
+            _exprStack = new Stack<string>();
 
             this.VisitChildren(context);
-            var StateInit = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
+            var stateInit = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
                     { "state",
                         new Dictionary<string, Dictionary<string, object>>()
                         {
@@ -124,23 +124,45 @@ namespace Kompilyatory
                                 {
                                     {"type", type},
                                     {"ID", name},
-                                    {"expr", exprStack },
+                                    {"expr", _exprStack },
                                     //{"END", context.END().ToString()}
                                 }
                             }
                         }
                     }
                 };
-            if (Node)
-                Program.InitNode.Add(StateInit);
+            if (node)
+                Program.InitNode.Add(stateInit);
             else
             {
-                return StateInit;
+                return stateInit;
             }
 
             return null;
         }
-        private object BodyPrint([NotNull] ExprParser.PrintContext context, bool Node = false)
+        private readonly List<Dictionary<string, object>> _args = new List<Dictionary<string, object>>();
+        private object BodyInit([NotNull] ExprParser.ParameterContext[] context) 
+        {
+            foreach (var item in context)
+            {
+             
+                var name = item.ID() == null ? "" : item.ID().GetText();
+                var type = item.paramType() == null ? "" : item.paramType().GetText();
+                _exprStack = new Stack<string>();
+
+                if (item.expr() != null) BodyExpr(ref _exprStack, item.expr());
+
+                _args.Add(new Dictionary<string, object>()
+                {
+                    {"type",type},
+                    {"ID",name},
+                    {"expr", _exprStack},
+                });
+                if (item.parameter() != null) BodyInit(item.parameter());
+            }
+            return _args;
+        }
+        private object BodyPrint([NotNull] ExprParser.PrintContext context, bool node = false)
         {
             var StateWriteln = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>()
                 {
@@ -163,11 +185,11 @@ namespace Kompilyatory
             {
                 if (item.expr() != null)
                 {
-                    exprStack = new Stack<string>();
+                    _exprStack = new Stack<string>();
                     this.VisitExpr(item.expr());
                     op.Add(new List<Dictionary<string, object>>() {
                         new Dictionary<string, object> {
-                            { "expr", exprStack },
+                            { "expr", _exprStack },
                             { "value", new List<string>(){ item.TYPE().GetText() } }
                         }
                     });
@@ -196,20 +218,20 @@ namespace Kompilyatory
             }
             StateWriteln["state"]["writeln"]["value"] = op;
 
-            if (Node) Program.InitNode.Add(StateWriteln);
+            if (node) Program.InitNode.Add(StateWriteln);
             else
             {
                 return StateWriteln;
             }
             return null;
         }
-        private void BodyExpr(ref Stack<string> Expr, [NotNull] ExprParser.ExprContext context)
+        private void BodyExpr(ref Stack<string> expr, [NotNull] ExprParser.ExprContext context)
         {
-            exprStack = new Stack<string>();
+            _exprStack = new Stack<string>();
             VisitExpr(context);
-            Expr = exprStack;
+            expr = _exprStack;
         }
-        private object ChangeValue([NotNull] ExprParser.ChangeValueContext context, bool Node = false)
+        private object ChangeValue([NotNull] ExprParser.ChangeValueContext context, bool node = false)
         {
             Stack<string> StackNewValue = new Stack<string>();
             BodyExpr(ref StackNewValue, context.expr());
@@ -230,11 +252,11 @@ namespace Kompilyatory
                         }
                     }
                 };
-            if (Node) Program.InitNode.Add(StateNewValue);
+            if (node) Program.InitNode.Add(StateNewValue);
             else return StateNewValue;
             return null;
         }
-        private object BodyDoWhile([NotNull] ExprParser.DoWhileContext context, bool Node = false)
+        private object BodyDoWhile([NotNull] ExprParser.DoWhileContext context, bool node = false)
         {
             List<object> DoWhileBody = new List<object>();
             Stack<string> LeftExpr = new Stack<string>();
@@ -263,11 +285,11 @@ namespace Kompilyatory
                     }
                 };
 
-            if (Node) Program.InitNode.Add(StateDoWhile);
+            if (node) Program.InitNode.Add(StateDoWhile);
             else return StateDoWhile;
             return null;
         }
-        private object BodyFor([NotNull] ExprParser.ForContext context, bool Node = false)
+        private object BodyFor([NotNull] ExprParser.ForContext context, bool node = false)
         {
             Stack<string> LeftExpr = new Stack<string>();
             Stack<string> RightExpr = new Stack<string>();
@@ -334,7 +356,7 @@ namespace Kompilyatory
                     }
                 };
 
-            if (Node) Program.InitNode.Add(StateWhile);
+            if (node) Program.InitNode.Add(StateWhile);
             else return StateWhile;
             return null;
         }
@@ -388,7 +410,7 @@ namespace Kompilyatory
             BodyInit(context,true);
             return null;
         }
-        static public Stack<string> exprStack;
+        private Stack<string> _exprStack;
         public override IParseTree VisitExpr([NotNull] ExprParser.ExprContext context)
         {
             var expression = "";
@@ -400,7 +422,7 @@ namespace Kompilyatory
             if (expression != "")
             {
                 if (expression[0] == '$') expression = expression.Trim('$');
-                exprStack.Push(expression);
+                _exprStack.Push(expression);
 
             }
             return this.VisitChildren(context);
@@ -411,7 +433,7 @@ namespace Kompilyatory
             {
                 List<object> body = new List<object>();
                 BuildBody(ref body,item.stat());   
-                var StateFunction = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>()
+                var stateFunction = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>()
                 {
                     {
                         "state",
@@ -422,7 +444,7 @@ namespace Kompilyatory
                                 new Dictionary<string, object>()
                                 {
                                     { "ID", item.ID().GetText()},
-                                    {"args", item.parameters()?.parameter() ?? null},
+                                    {"args", item.parameter() != null? BodyInit(item.parameter()) : null},
                                     {"type", item.funType().GetText()},
                                     {"body", body},
                                 }
@@ -430,7 +452,7 @@ namespace Kompilyatory
                         }
                     }
                 };
-                Program.InitNode.Add(StateFunction);
+                Program.InitNode.Add(stateFunction);
             }
         }
         public override IParseTree VisitProg([NotNull] ExprParser.ProgContext context)

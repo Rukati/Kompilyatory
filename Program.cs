@@ -90,13 +90,12 @@ namespace Kompilyatory
                 else if (State.FOR != null) LL._InstructionFor(State.FOR, entry);
             }
         }
-
         public class function
         {
             public string ID { get; set; }
             public List<object> args { get; set; }
             public string type { get; set; }
-            public List<state> body { get; set; }
+            public List<AST> body { get; set; }
         }
         public class state
         {
