@@ -90,38 +90,36 @@ namespace Kompilyatory
                 else if (State.FOR != null) LL._InstructionFor(State.FOR, entry);
             }
         }
+
+        public class function
+        {
+            public string ID { get; set; }
+            public List<object> args { get; set; }
+            public string type { get; set; }
+            public List<state> body { get; set; }
+        }
         public class state
         {
-            [JsonProperty("initialization")]
-            public initialization Initialization { get; set; }
-            [JsonProperty("writeln")]
-            public write Writeln {  get; set; }
-            [JsonProperty("if")]
-            public IF iF { get; set; }
+            [JsonProperty("function")] public function Function { get; set; }
+            [JsonProperty("initialization")] public initialization Initialization { get; set; }
+            [JsonProperty("writeln")] public write Writeln {  get; set; }
+            [JsonProperty("if")] public IF iF { get; set; }
             public WHILE whilE {get; set; }
             public ChangeValue changeValue {  get; set; }
-            [JsonProperty("DoWhile")]
-            public doWhile doWhile { get; set; }
-            [JsonProperty("for")]
-            public FOR FOR { get; set; }
+            [JsonProperty("DoWhile")] public doWhile doWhile { get; set; }
+            [JsonProperty("for")] public FOR FOR { get; set; }
         }
         public class FOR
         {
-            [JsonProperty("equation")]
-            public equation Equation { get; set; }
-            [JsonProperty("init")]
-            public initialization Init {  get; set; }
-            [JsonProperty("changeValue")]
-            public ChangeValue changeValue { get; set; }
+            [JsonProperty("equation")] public equation Equation { get; set; }
+            [JsonProperty("init")] public initialization Init {  get; set; }
+            [JsonProperty("changeValue")] public ChangeValue changeValue { get; set; }
             public List<AST> body { get; set; }
             public class equation
             {
-                [JsonProperty("left")]
-                public List<string> left {  get; set; }
-                [JsonProperty("right")]
-                public List<string> right { get; set; }
-                [JsonProperty("operator")]
-                public string Operator { get; set; }
+                [JsonProperty("left")] public List<string> left {  get; set; }
+                [JsonProperty("right")] public List<string> right { get; set; }
+                [JsonProperty("operator")] public string Operator { get; set; }
             }
         }
         public class ChangeValue
@@ -135,16 +133,13 @@ namespace Kompilyatory
         {
             public List<string> left { get; set; }
             public List<string> right { get; set; }
-            [JsonProperty("operator")]
-            public string Operator { get; set; }
+            [JsonProperty("operator")] public string Operator { get; set; }
             public List<AST> body { get; set; }
-            [JsonProperty("else")]
-            public Dictionary<string,List<AST>> Else { get; set; }
+            [JsonProperty("else")] public Dictionary<string,List<AST>> Else { get; set; }
         }
         public class write
         {
-            [JsonProperty("value")]
-            public List<List<Dictionary<string,List<string>>>> VALUE { get; set; }
+            [JsonProperty("value")] public List<List<Dictionary<string,List<string>>>> VALUE { get; set; }
         }
         static public List<AST> ast = new List<AST>();
 
