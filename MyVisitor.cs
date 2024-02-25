@@ -275,14 +275,18 @@ namespace Kompilyatory
             BodyExpr(ref LeftExpr, context.equation().expr()[0]);
             BodyExpr(ref RightExpr, context.equation().expr()[1]);
 
-            var name = context.for_init().ID() == null ? "" : context.for_init().ID().GetText();
-            var type = context.for_init().TYPE() == null ? "" : context.for_init().TYPE().GetText();
-
-            exprStack = new Stack<string>();
+            string name = "";
+            string type = "";
+            Stack<string> expr = new Stack<string>();
+            if (context.for_init() != null)
+            {
+                name = context.for_init().ID() == null ? "" : context.for_init().ID().GetText();
+                type = context.for_init().TYPE() == null ? "" : context.for_init().TYPE().GetText();
+                BodyExpr(ref expr, context.for_init().expr());
+            }
             
             Stack<string> StackNewValue = new Stack<string>();
-            BodyExpr(ref StackNewValue, context.changeValue().expr());
-            BodyExpr(ref exprStack, context.for_init().expr());
+            if(context.changeValue() != null) BodyExpr(ref StackNewValue, context.changeValue().expr());
 
             List<object> forBody = new List<object>();
 
@@ -310,14 +314,14 @@ namespace Kompilyatory
                                         {
                                             {"type", type},
                                             {"ID", name},
-                                            {"expr", exprStack }
+                                            {"expr", expr }
                                         }
                                     },
                                     {
                                         "changeValue",
                                         new Dictionary<string, object>()
                                         {
-                                            {"ID", context.changeValue().ID().GetText()},
+                                            {"ID", context.changeValue() == null ? null : context.changeValue().ID().GetText()},
                                             {"expr", StackNewValue},
                                         }
                                     },
@@ -384,7 +388,6 @@ namespace Kompilyatory
             BodyInit(context,true);
             return null;
         }
-        //JsonConvert.SerializeObject(keys, Formatting.Indented
         static public Stack<string> exprStack;
         public override IParseTree VisitExpr([NotNull] ExprParser.ExprContext context)
         {
@@ -402,7 +405,56 @@ namespace Kompilyatory
             }
             return this.VisitChildren(context);
         }
-        public override IParseTree VisitProg([NotNull] ExprParser.ProgContext context){ return this.VisitChildren(context); }
+        private void BuildFunction([NotNull] ExprParser.FunctionContext[] context)
+        {
+            foreach (var item in context)
+            {
+                List<object> body = new List<object>();
+                BuildBody(ref body,item.stat());   
+                var StateFunction = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>()
+                {
+                    {
+                        "state",
+                        new Dictionary<string, Dictionary<string, object>>()
+                        {
+                            {
+                                "function",
+                                new Dictionary<string, object>()
+                                {
+                                    { "ID", item.ID().GetText()},
+                                    {"args", item.parameters()?.parameter() ?? null},
+                                    {"type", item.funType().GetText()},
+                                    {"body", body},
+                                }
+                            }
+                        }
+                    }
+                };
+                Program.InitNode.Add(StateFunction);
+            }
+        }
+        public override IParseTree VisitProg([NotNull] ExprParser.ProgContext context)
+        {
+            if (context.function() != null)
+                BuildFunction(context.function());
+            foreach (var item in context.stat())
+            {
+                if (item.print() != null)
+                    BodyPrint(item.print(),true);
+                else if (item.initialization() != null)
+                    BodyInit(item.initialization(),true);
+                else if (item.@if() != null)
+                    BodyIf(item.@if(),true);
+                else if (item.@while() != null)
+                    BodyWhile(item.@while(),true);
+                else if (item.changeValue() != null)
+                    ChangeValue(item.changeValue(),true);
+                else if (item.@for() != null)
+                    BodyFor(item.@for(),true);
+            }
+
+            return null;
+        }
         public override IParseTree VisitStat([NotNull] ExprParser.StatContext context) { return this.VisitChildren(context); }
     }
 }
