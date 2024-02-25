@@ -238,7 +238,6 @@
       <Visitor>True</Visitor>
     </Antlr4>
     <Compile Include="ILGenerator.cs" />
-    <Compile Include="MyErrorStrategy.cs" />
     <Compile Include="MyLexer.cs" />
     <Compile Include="MyParser.cs" />
     <None Include="bin\Debug\ast.json" />
@@ -259,6 +258,10 @@
   <ItemGroup>
     <Analyzer Include="packages\Microsoft.CodeAnalysis.Analyzers.3.3.4\analyzers\dotnet\cs\Microsoft.CodeAnalysis.Analyzers.dll" />
     <Analyzer Include="packages\Microsoft.CodeAnalysis.Analyzers.3.3.4\analyzers\dotnet\cs\Microsoft.CodeAnalysis.CSharp.Analyzers.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="bin\Debug\lang.txt" />
+    <Content Include="bin\Debug\output.ll" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
