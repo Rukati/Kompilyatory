@@ -29,7 +29,45 @@ namespace Kompilyatory
                     body.Add(ChangeValue(item.changeValue()));
                 else if (item.@for() != null)
                     body.Add(BodyFor(item.@for()));
+                else if (item.callFunc() != null)
+                    body.Add(CallFunc(item.callFunc()));
             }
+        }
+
+        private void BuildArgcCallFunc(ref List<string> args, [NotNull] ExprParser.ArgcContext[] contexts)
+        {
+            if (contexts != null)
+            {
+                foreach (var VARIABLE in contexts)
+                {
+                    args.Add(VARIABLE.arguments().GetText());
+                    if (VARIABLE.argc() != null) BuildArgcCallFunc(ref args, VARIABLE.argc());
+                }
+            }
+            
+        }
+        private object CallFunc([NotNull] ExprParser.CallFuncContext context, bool node = false)
+        {
+            List<string> args = new List<string>();
+            BuildArgcCallFunc(ref args, context.argc());
+            var stateCallFunc = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
+                { "state",
+                    new Dictionary<string, Dictionary<string, object>>()
+                    {
+                        {
+                            "callFunc",
+                            new Dictionary<string, object>()
+                            {
+                                { "ID", context.funcID().GetText() },
+                                { "argc", args },
+                            }
+                        },
+                    }
+                }
+            };
+            if (node) Program.InitNode.Add(stateCallFunc);
+            else return stateCallFunc;
+            return null;
         }
         private object BodyWhile([NotNull] ExprParser.WhileContext context, bool node = false)
         {
@@ -140,26 +178,20 @@ namespace Kompilyatory
 
             return null;
         }
-        private readonly List<Dictionary<string, object>> _args = new List<Dictionary<string, object>>();
-        private object BodyInit([NotNull] ExprParser.ParameterContext[] context) 
+        private readonly  List<object> _args = new List<object>();
+        private object FuncArgc([NotNull] ExprParser.ParameterContext[] context )
         {
             foreach (var item in context)
             {
-             
-                var name = item.ID() == null ? "" : item.ID().GetText();
-                var type = item.paramType() == null ? "" : item.paramType().GetText();
-                _exprStack = new Stack<string>();
-
-                if (item.expr() != null) BodyExpr(ref _exprStack, item.expr());
-
+                
                 _args.Add(new Dictionary<string, object>()
                 {
-                    {"type",type},
-                    {"ID",name},
-                    {"expr", _exprStack},
+                    { "type", item.TYPE().GetText() },
+                    { "ID", item.ID().GetText() },
                 });
-                if (item.parameter() != null) BodyInit(item.parameter());
+                if (item.parameter() != null) FuncArgc(item.parameter());
             }
+
             return _args;
         }
         private object BodyPrint([NotNull] ExprParser.PrintContext context, bool node = false)
@@ -258,16 +290,16 @@ namespace Kompilyatory
         }
         private object BodyDoWhile([NotNull] ExprParser.DoWhileContext context, bool node = false)
         {
-            List<object> DoWhileBody = new List<object>();
-            Stack<string> LeftExpr = new Stack<string>();
-            Stack<string> RightExpr = new Stack<string>();
+            List<object> doWhileBody = new List<object>();
+            Stack<string> leftExpr = new Stack<string>();
+            Stack<string> rightExpr = new Stack<string>();
             
-            BuildBody(ref DoWhileBody, context.whileBody().stat());
+            BuildBody(ref doWhileBody, context.whileBody().stat());
 
-            BodyExpr(ref LeftExpr, context.equation().expr()[0]);
-            BodyExpr(ref RightExpr, context.equation().expr()[1]);
+            BodyExpr(ref leftExpr, context.equation().expr()[0]);
+            BodyExpr(ref rightExpr, context.equation().expr()[1]);
 
-            var StateDoWhile = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
+            var stateDoWhile = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
                     { "state",
                         new Dictionary<string, Dictionary<string, object>>()
                         {
@@ -275,18 +307,18 @@ namespace Kompilyatory
                                 "DoWhile",
                                 new Dictionary<string, object>()
                                 {
-                                    { "left", LeftExpr },
-                                    { "right", RightExpr },
+                                    { "left", leftExpr },
+                                    { "right", rightExpr },
                                     { "operator", context.equation().op.Text },
-                                    { "body", DoWhileBody },
+                                    { "body", doWhileBody },
                                 }
                             },
                         }
                     }
                 };
 
-            if (node) Program.InitNode.Add(StateDoWhile);
-            else return StateDoWhile;
+            if (node) Program.InitNode.Add(stateDoWhile);
+            else return stateDoWhile;
             return null;
         }
         private object BodyFor([NotNull] ExprParser.ForContext context, bool node = false)
@@ -444,7 +476,7 @@ namespace Kompilyatory
                                 new Dictionary<string, object>()
                                 {
                                     { "ID", item.ID().GetText()},
-                                    {"args", item.parameter() != null? BodyInit(item.parameter()) : null},
+                                    {"args", item.parameter() != null? FuncArgc(item.parameter()) : null},
                                     {"type", item.funType().GetText()},
                                     {"body", body},
                                 }
@@ -473,6 +505,8 @@ namespace Kompilyatory
                     ChangeValue(item.changeValue(),true);
                 else if (item.@for() != null)
                     BodyFor(item.@for(),true);
+                else if (item.callFunc() != null)
+                    CallFunc(item.callFunc(), true);
             }
 
             return null;

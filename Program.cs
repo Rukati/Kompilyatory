@@ -17,7 +17,7 @@ using LLVMSharp;
 
 namespace Kompilyatory
 {
-    class Program
+    public class Program
     {
         static public List<Dictionary<string, Dictionary<string, Dictionary<string, object>>>> InitNode = new List<Dictionary<string, Dictionary<string, Dictionary<string, object>>>>();
 
@@ -67,9 +67,9 @@ namespace Kompilyatory
         {
             [JsonProperty("state")]
             public state State { get; set; }
-            public void HandlingStatus(LLVMBasicBlockRef entry)
+            public void HandlingStatus(LLVMBasicBlockRef entry, ref Dictionary<LLVMBasicBlockRef, List<Dictionary<string, initialization>>> local)
             {
-                if (State.Initialization != null) LL._InstructionInitialization(State.Initialization);
+                if (State.Initialization != null) Instructions.Initialization(State.Initialization, ref local);
                 else if (State.Writeln != null)
                 {
                     foreach (var valuePrint in State.Writeln.VALUE)
@@ -77,28 +77,38 @@ namespace Kompilyatory
                         if (valuePrint.Exists(x => x.Keys.First() == "expr"))
                         {
                             var exprValue = valuePrint.Find(x => x.Keys.First() == "expr");
-                            LL._InstructionDisplay(LL.CalculatingTheExpression(exprValue["expr"], exprValue["value"][0])[0], exprValue["value"][0]);
+                            Instructions.Display(LL.CalculatingTheExpression(exprValue["expr"], ref local, exprValue["value"][0])[0], exprValue["value"][0],  ref local);
                         }
-                        else LL._InstructionDisplay(valuePrint[0][valuePrint[0].Keys.First()][0], valuePrint[0].Keys.First());
+                        else Instructions.Display(valuePrint[0][valuePrint[0].Keys.First()][0], valuePrint[0].Keys.First(),ref local);
 
                     }
                 }
-                else if (State.iF != null) LL._InstructionIF(State.iF, entry);
-                else if (State.whilE != null) LL._InstructionWHILE(State.whilE, entry);
-                else if (State.changeValue != null) LL._InstructionChangeValue(State.changeValue);
-                else if (State.doWhile != null) LL._InstructionDoWhile(State.doWhile, entry);
-                else if (State.FOR != null) LL._InstructionFor(State.FOR, entry);
+                else if (State.iF != null) Instructions._if(State.iF, entry,ref local);
+                else if (State.whilE != null) Instructions._while(State.whilE, entry,ref local);
+                else if (State.changeValue != null) Instructions.changeValue(State.changeValue,ref local);
+                else if (State.doWhile != null) Instructions._doWhile(State.doWhile, entry,ref local);
+                else if (State.FOR != null) Instructions._for(State.FOR, entry,ref local);
+                else if (State.Function != null) Instructions.buildFunction(State.Function,entry);
+                else if (State.CallFunction != null) Instructions.callFunction(State.CallFunction,ref local);
             }
         }
         public class function
         {
             public string ID { get; set; }
-            public List<object> args { get; set; }
+            public List<initialization> args { get; set; }
             public string type { get; set; }
             public List<AST> body { get; set; }
         }
+        
+        public class callFunction
+        {
+            public string ID { get; set; }
+            public List<string> argc { get; set; }
+        }
         public class state
         {
+            [JsonProperty("callFunc")]
+            public callFunction CallFunction { get; set; }
             [JsonProperty("function")] public function Function { get; set; }
             [JsonProperty("initialization")] public initialization Initialization { get; set; }
             [JsonProperty("writeln")] public write Writeln {  get; set; }
