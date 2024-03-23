@@ -5,8 +5,11 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.Remoting.Contexts;
+using System.Security.Policy;
 using System.Xml.Linq;
+using Microsoft.SqlServer.Server;
 
 
 namespace Kompilyatory
@@ -31,9 +34,10 @@ namespace Kompilyatory
                     body.Add(BodyFor(item.@for()));
                 else if (item.callFunc() != null)
                     body.Add(CallFunc(item.callFunc()));
+                else if (item.doWhile() != null)
+                    body.Add(BodyDoWhile(item.doWhile()));
             }
         }
-
         private void BuildArgcCallFunc(ref List<string> args, [NotNull] ExprParser.ArgcContext[] contexts)
         {
             if (contexts != null)
@@ -144,6 +148,51 @@ namespace Kompilyatory
             else return stateIfElse;
             return null;
         }
+        private void BuildFunction([NotNull] ExprParser.FunctionContext[] context)
+        {
+            foreach (var item in context)
+            {
+                List<object> body = new List<object>();
+                BuildBody(ref body,item.stat());
+                Stack<string> returnStack = new Stack<string>();
+                List<string> bodyReturn = new List<string>();
+
+                if (item.@return() != null)
+                {
+                    if (item.@return().expr() != null)
+                    {
+                        BodyExpr(ref returnStack, item.@return().expr());
+                        bodyReturn = returnStack.ToList();
+                    }
+                    else
+                    {
+                        bodyReturn.Add(item.@return().GetText());
+                    }
+                }
+                
+                var stateFunction = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>()
+                {
+                    {
+                        "state",
+                        new Dictionary<string, Dictionary<string, object>>()
+                        {
+                            {
+                                "function",
+                                new Dictionary<string, object>()
+                                {
+                                    { "ID", item.ID().GetText()},
+                                    { "args", item.parameter() != null? FuncArgc(item.parameter()) : null},
+                                    { "type", item.funType().GetText()},
+                                    { "body", body},
+                                    { "return", bodyReturn},
+                                }
+                            }
+                        }
+                    }
+                };
+                Program.InitNode.Add(stateFunction);
+            }
+        }
         private object BodyInit([NotNull] ExprParser.InitializationContext context, bool node = false)
         {
             var name = context.ID() == null ? "" : context.ID().GetText();
@@ -152,6 +201,8 @@ namespace Kompilyatory
             _exprStack = new Stack<string>();
 
             this.VisitChildren(context);
+            List<string> args = new List<string>();
+            BuildArgcCallFunc(ref args, context.callFunc()?.argc());
             var stateInit = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
                     { "state",
                         new Dictionary<string, Dictionary<string, object>>()
@@ -163,7 +214,13 @@ namespace Kompilyatory
                                     {"type", type},
                                     {"ID", name},
                                     {"expr", _exprStack },
-                                    //{"END", context.END().ToString()}
+                                    {
+                                        "func", new Dictionary<string,object>()
+                                        {
+                                            {"ID",context.callFunc()?.funcID().GetText()},
+                                            {"argc", args}
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -222,7 +279,7 @@ namespace Kompilyatory
                     op.Add(new List<Dictionary<string, object>>() {
                         new Dictionary<string, object> {
                             { "expr", _exprStack },
-                            { "value", new List<string>(){ item.TYPE().GetText() } }
+                            { "value", new List<string>(){ item.TYPE() == null?"int" : item.TYPE().GetText() } }
                         }
                     });
                 }
@@ -453,39 +510,10 @@ namespace Kompilyatory
             }
             if (expression != "")
             {
-                if (expression[0] == '$') expression = expression.Trim('$');
                 _exprStack.Push(expression);
 
             }
             return this.VisitChildren(context);
-        }
-        private void BuildFunction([NotNull] ExprParser.FunctionContext[] context)
-        {
-            foreach (var item in context)
-            {
-                List<object> body = new List<object>();
-                BuildBody(ref body,item.stat());   
-                var stateFunction = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>()
-                {
-                    {
-                        "state",
-                        new Dictionary<string, Dictionary<string, object>>()
-                        {
-                            {
-                                "function",
-                                new Dictionary<string, object>()
-                                {
-                                    { "ID", item.ID().GetText()},
-                                    {"args", item.parameter() != null? FuncArgc(item.parameter()) : null},
-                                    {"type", item.funType().GetText()},
-                                    {"body", body},
-                                }
-                            }
-                        }
-                    }
-                };
-                Program.InitNode.Add(stateFunction);
-            }
         }
         public override IParseTree VisitProg([NotNull] ExprParser.ProgContext context)
         {
@@ -507,6 +535,8 @@ namespace Kompilyatory
                     BodyFor(item.@for(),true);
                 else if (item.callFunc() != null)
                     CallFunc(item.callFunc(), true);
+                else if (item.doWhile() != null)
+                    BodyDoWhile(item.doWhile(), true);
             }
 
             return null;
