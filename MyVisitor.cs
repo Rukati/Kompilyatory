@@ -169,7 +169,9 @@ namespace Kompilyatory
                         bodyReturn.Add(item.@return().GetText());
                     }
                 }
-                
+
+                List<Dictionary<string, string>> argc = new List<Dictionary<string, string>>();
+                FuncArgc(item.parameter(), ref argc);
                 var stateFunction = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>()
                 {
                     {
@@ -181,7 +183,7 @@ namespace Kompilyatory
                                 new Dictionary<string, object>()
                                 {
                                     { "ID", item.ID().GetText()},
-                                    { "args", item.parameter() != null? FuncArgc(item.parameter()) : null},
+                                    { "args", item.parameter() != null? argc : null},
                                     { "type", item.funType().GetText()},
                                     { "body", body},
                                     { "return", bodyReturn},
@@ -235,77 +237,45 @@ namespace Kompilyatory
 
             return null;
         }
-        private readonly  List<object> _args = new List<object>();
-        private object FuncArgc([NotNull] ExprParser.ParameterContext[] context )
+        private void FuncArgc([NotNull] ExprParser.ParameterContext context, ref List<Dictionary<string, string>> argc)
         {
-            foreach (var item in context)
+            if (context.parameter().Length > 0)
             {
-                
-                _args.Add(new Dictionary<string, object>()
-                {
-                    { "type", item.TYPE().GetText() },
-                    { "ID", item.ID().GetText() },
-                });
-                if (item.parameter() != null) FuncArgc(item.parameter());
+                FuncArgc(context.parameter()[0],ref argc);
             }
-
-            return _args;
+            argc.Add(
+                new Dictionary<string, string>()
+                {
+                    { "type", context.TYPE().GetText() },
+                    { "ID", context.ID().GetText() },
+                });
         }
         private object BodyPrint([NotNull] ExprParser.PrintContext context, bool node = false)
         {
             var StateWriteln = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>()
                 {
                     { "state",
-                        new Dictionary<string, Dictionary<string, object>>()
+                        new Dictionary<string, Dictionary<string,object>>()
                         {
                             {
                                 "writeln",
                                 new Dictionary<string, object>()
                                 {
-                                    {"value" , null}
+                                    {
+                                        "Arguments" , new List<object>()
+                                    }
                                 }
                             }
                         }
                     }
                 };
 
-            List<object> op = new List<object>();
-            foreach (var item in context.print_arguments())
+            List<object> argc = new List<object>();
+            if (context.print_arguments() != null)
             {
-                if (item.expr() != null)
-                {
-                    _exprStack = new Stack<string>();
-                    this.VisitExpr(item.expr());
-                    op.Add(new List<Dictionary<string, object>>() {
-                        new Dictionary<string, object> {
-                            { "expr", _exprStack },
-                            { "value", new List<string>(){ item.TYPE() == null?"int" : item.TYPE().GetText() } }
-                        }
-                    });
-                }
-                else if (item.NUMBER() != null) op.Add(new List<Dictionary<string, object>>() {
-                    new Dictionary<string, object>{
-                        {
-                            "numeric", new List<string>() { item.NUMBER().GetText() }
-                        }
-                    }
-                });
-                else if (item.LINE() != null) op.Add(new List<Dictionary<string, object>>() {
-                    new Dictionary<string, object>{
-                        {
-                            "line", new List<string>() { item.LINE().GetText().Trim('"') }
-                        }
-                    }
-                });
-                else if (item.ID() != null) op.Add(new List<Dictionary<string, object>>() {
-                    new Dictionary<string, object>{
-                        {
-                            "variable", new List<string>() { item.ID().GetText().Trim('$') }
-                        }
-                    }
-                });
+                PrintBody(context.print_arguments(), ref argc);
+                StateWriteln["state"]["writeln"]["Arguments"] = argc;
             }
-            StateWriteln["state"]["writeln"]["value"] = op;
 
             if (node) Program.InitNode.Add(StateWriteln);
             else
@@ -314,6 +284,47 @@ namespace Kompilyatory
             }
             return null;
         }
+        private void PrintBody([NotNull]ExprParser.Print_argumentsContext item, ref List<object> argc)
+        {
+            if (item.expr() != null)
+            {
+                _exprStack = new Stack<string>();
+                this.VisitExpr(item.expr());
+                var exprValue = new Dictionary<string, object>()
+                {
+                    { "value", _exprStack.ToList() },
+                    { "type", item.TYPE() == null ? "int" : item.TYPE().GetText() }
+                };
+                argc.Add(new Dictionary<string, object>()
+                {
+                    { "Expr", exprValue }
+                });
+            }
+            else if (item.NUMBER() != null)
+            {
+                var numericValue = new Dictionary<string, object>();
+                numericValue.Add("numeric", item.NUMBER().GetText());
+                argc.Add(numericValue);
+            }
+            else if (item.LINE() != null)
+            {
+                var lineValue = item.LINE().GetText().Trim('"');
+                argc.Add(new Dictionary<string, string>()
+                {
+                    { "line", lineValue }
+                });
+            }
+            else if (item.ID() != null)
+            {
+                var variableValue = item.ID().GetText().Trim('$');
+                argc.Add(new Dictionary<string, string>()
+                {
+                    { "variable", variableValue }
+                });
+            }
+            if (item.print_arguments().Length > 0) PrintBody(item.print_arguments()[0], ref argc);
+        }
+
         private void BodyExpr(ref Stack<string> expr, [NotNull] ExprParser.ExprContext context)
         {
             _exprStack = new Stack<string>();

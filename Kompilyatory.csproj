@@ -240,8 +240,6 @@
     </Antlr4>
     <Compile Include="ILGenerator.cs" />
     <Compile Include="Instructions.cs" />
-    <Compile Include="MyLexer.cs" />
-    <Compile Include="MyParser.cs" />
     <None Include="bin\Debug\ast.json" />
     <None Include="obj\Debug\ExprBaseListener.cs" />
     <None Include="obj\Debug\ExprBaseVisitor.cs" />

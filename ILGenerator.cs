@@ -22,7 +22,7 @@ namespace Kompilyatory
         public class Blocks
         {
             public LLVMBasicBlockRef block { get; set; }
-            public Dictionary<string, Initialization> variable = new Dictionary<string, Initialization>();
+            public Dictionary<string, Initialization> variable;
             public Initialization FindVariable(string name)
             {
                 if (variable.TryGetValue(name, out var value)) return value;
@@ -50,11 +50,11 @@ namespace Kompilyatory
                 new LLVMTypeRef[] { LLVMTypeRef.PointerType(LLVMTypeRef.Int8Type(), 0), }, true);
             LLVM.AddFunction(module, "printf", retType);
 
-            AreaOfVisibility.Function.Push(new Blocks(){block = LLVM.GetInsertBlock(LL.builder)});
+            AreaOfVisibility.Function.Push(new Blocks(){block = entry, variable = new Dictionary<string, Initialization>()});
             var blocks = AreaOfVisibility.Function.Peek();
             foreach (var item in Ast)
             {
-                item.HandlingStatus(entry, ref blocks);
+                item.HandlingStatus(ref blocks);
             }
             
             // Ничего не возвращаем
@@ -78,7 +78,9 @@ namespace Kompilyatory
         public static void StoreValue(ref Initialization initValue)
         {
             string value = initValue.expr[0];
-            LLVM.BuildStore(builder, BuildValue(ref value,initValue.type), initValue.ValueRef);
+            var RefValue = BuildValue(ref value, initValue.type);
+            LLVM.BuildStore(builder, RefValue , initValue.VariableRef);
+            initValue.ValueRef = RefValue;
         }
         public static LLVMTypeRef GetTypeRef(string type)
         {
@@ -87,7 +89,7 @@ namespace Kompilyatory
                 case "int":
                     return LLVMTypeRef.Int32Type();
                 case "float":
-                    return LLVMTypeRef.FloatType();
+                    return LLVMTypeRef.DoubleType();
                 default:
                     WriteWrong($"Incorrect data type \"{type}\"");
                     break;
@@ -103,14 +105,19 @@ namespace Kompilyatory
             {
                 foreach (var block in AreaOfVisibility.Function)
                 {
-                    if (block.variable.TryGetValue(initValue.Substring(1), out Initialization variableValue)) return LLVM.BuildLoad(builder,variableValue.ValueRef,"");
+                    if (block.variable.TryGetValue(initValue.Substring(1), out Initialization variableValue)) return variableValue.ValueRef;
                 }
+                WriteWrong($"Unknown variable \"{initValue.Substring(1)}\"");
             }
-            if (type == "int" && !initValue.Contains('.'))
+
+            if (type == "int")
             {
                 if (initValue[0] == '-')
                 {
-                    var positiveValue = LLVM.ConstInt(_lLVMType, ulong.Parse(initValue.Substring(1)),
+                    double floatingNumber = double.Parse(initValue.Substring(1), CultureInfo.InvariantCulture);
+                    ulong uLongNumber = (ulong)floatingNumber;
+                    
+                    var positiveValue = LLVM.ConstInt(_lLVMType, uLongNumber,
                         new LLVMBool(1));
 
                     var zeroValue = LLVM.ConstInt(_lLVMType, 0, new LLVMBool(0));
@@ -118,176 +125,95 @@ namespace Kompilyatory
                     value = LLVM.BuildSub(builder, zeroValue, positiveValue, "");
                 }
                 else
-                    value = LLVM.ConstInt(_lLVMType,
-                        ulong.Parse(initValue), new LLVMBool(0));
+                {
+                    double floatingNumber = double.Parse(initValue, CultureInfo.InvariantCulture);
+                    ulong uLongNumber = (ulong)floatingNumber; 
+                    value = LLVM.ConstInt(_lLVMType, uLongNumber, new LLVMBool(0)); 
+                }
             }
             else if (type == "float")
             {
                 value = LLVM.ConstReal(_lLVMType,
-                    double.Parse(initValue.Replace('.', ',')));
+                    double.Parse(initValue,CultureInfo.InvariantCulture));
             }
             else WriteWrong($"The wrong data type was selected for the value variable");
 
             return value;
         }
-        /*public static LLVMValueRef _BuildEquation(List<string> left, List<string> right, string op,
-            ref Dictionary<LLVMBasicBlockRef, List<Dictionary<string, Initialization>>> _valueLocaleVariable)
+        public static LLVMValueRef _BuildEquation(List<string> left, List<string> right, string op,
+            ref Blocks _valueLocaleVariable)
         {
             var insertBlock = LLVM.GetInsertBlock(builder);
             LLVMValueRef leftVariable = default(LLVMValueRef);
             LLVMValueRef rightVariable = default(LLVMValueRef);
-
-            if (left.Count == 1)
+            
+            if (left[0][0] == '$')
             {
-                LLVMValueRef constInt;
-                if (left[0][0] == '$')
+                left[0] = left[0].Trim('$');
+                var variable = _valueLocaleVariable.FindVariable(left[0]);
+                if (variable != null)
                 {
-                    left[0] = left[0].Trim('$');
-                    var blockWithVariable = FindBlockWithVariable(left[0], insertBlock, ref _valueLocaleVariable).Item1;
-                    
-                    if (!blockWithVariable.Equals(default(LLVMBasicBlockRef)))
-                    {
-                        var tuple = _valueLocaleVariable[blockWithVariable]
-                            .FirstOrDefault(item => item.ContainsKey(left[0]))[left[0]];
-                        if (tuple.ValueRef.Pointer != IntPtr.Zero)
-                        {
-                            leftVariable = LLVM.BuildLoad(builder, tuple.ValueRef, "");
-                            leftVariable = LLVM.BuildSIToFP(builder, leftVariable ,LLVM.FloatType(), "LeftValueInCompare");
-                        }
-                    }
+                    leftVariable = LLVM.BuildSIToFP(builder, variable.ValueRef ,LLVM.FloatType(), "LeftValueInCompare");
                 }
                 else
-                {
-                    if (left[0][0] == '-')
-                    {
-                        var zeroValue = LLVM.ConstReal(LLVMTypeRef.FloatType(), 0);
-                        var absoluteValue = LLVM.ConstReal(LLVMTypeRef.FloatType(), double.Parse(left[0].Replace('.',',')));
-                        constInt = LLVM.BuildSub(builder, zeroValue, absoluteValue, "negative_value");
-                    }
-                    else
-                    {
-                        constInt = LLVM.ConstReal(LLVMTypeRef.FloatType(), double.Parse(left[0].Replace('.',',')));
-                    }
-
-                    leftVariable = LLVM.BuildAlloca(builder, LLVM.FloatType(), "LeftVariableInit");
-                    LLVM.BuildStore(builder, constInt, leftVariable);
-                    leftVariable = LLVM.BuildLoad(builder, leftVariable, "LeftValueInCompare");
-                }
+                    WriteWrong($"Unknown variable: {left[0]}");
             }
             else
             {
-                LLVMValueRef constDoubleValue;
-                double parsedValueDouble = double.Parse(CalculatingTheExpression(left, ref _valueLocaleVariable,"float")[0].Replace('.',','));
-                if (left[0][0] == '-')
+                if (left.Count == 1)
                 {
-                    var zeroValue = LLVM.ConstReal(LLVM.FloatType(), 0);
-                    var absoluteValue =
-                        LLVM.ConstReal(LLVM.FloatType(), parsedValueDouble);
-
-                    constDoubleValue = LLVM.BuildSub(builder, zeroValue, absoluteValue, "negative_value");
+                    string LeftValue = left[0];
+                    leftVariable = BuildValue(ref LeftValue, "float");
                 }
-                else constDoubleValue = LLVM.ConstReal(LLVM.FloatType(), parsedValueDouble);
-
-                if (_valueLocaleVariable[insertBlock].FirstOrDefault(varib =>
-                        varib.ContainsKey(left[0])).TryGetValue(left[0], out var tuple) &&
-                    tuple.ValueRef.Pointer != IntPtr.Zero)
-                    leftVariable = LLVM.BuildLoad(builder, tuple.ValueRef, "LeftValueInCompare");
                 else
                 {
-                    leftVariable = LLVM.BuildAlloca(builder, LLVM.FloatType(), "");
-                    LLVM.BuildStore(builder, constDoubleValue, leftVariable);
-                    leftVariable = LLVM.BuildLoad(builder, leftVariable, "LeftValueInCompare");
+                    leftVariable = CalculatingTheExpression(left, ref _valueLocaleVariable, "float");
                 }
             }
-
-            if (right.Count == 1)
+            
+            if (right[0][0] == '$')
             {
-                LLVMValueRef constInt;
-                if (right[0][0] == '$')
+                right[0] = right[0].Trim('$');
+                var variable = _valueLocaleVariable.FindVariable(right[0]);
+                if (variable != null)
                 {
-                    right[0] = right[0].Trim('$');
-                    var blockWithVariable =
-                        FindBlockWithVariable(right[0], insertBlock, ref _valueLocaleVariable).Item1;
-
-                    if (!blockWithVariable.Equals(default(LLVMBasicBlockRef)))
-                    {
-                        var tuple = _valueLocaleVariable[blockWithVariable]
-                            .FirstOrDefault(item => item.ContainsKey(right[0]))[right[0]];
-                        if (tuple.ValueRef.Pointer != IntPtr.Zero)
-                        {
-                            rightVariable = LLVM.BuildLoad(builder, tuple.ValueRef, "");
-                            rightVariable = LLVM.BuildSIToFP(builder, rightVariable ,LLVM.FloatType(), "RightValueInCompare");
-                        }
-                    }
+                    rightVariable = LLVM.BuildSIToFP(builder, variable.ValueRef ,LLVM.FloatType(), "LeftValueInCompare");
                 }
-                else
-                {
-                    if (right[0][0] == '-')
-                    {
-                        var zeroValue = LLVM.ConstReal(LLVM.FloatType(), 0);
-                        var absoluteValue = LLVM.ConstReal(LLVM.FloatType(), double.Parse(right[0].Replace('.',',')));
-                        constInt = LLVM.BuildSub(builder, zeroValue, absoluteValue, "negative_value");
-                    }
-                    else
-                    {
-                        constInt = LLVM.ConstReal(LLVM.FloatType(), double.Parse(right[0].Replace('.',',')));
-                    }
+                else 
+                    WriteWrong($"Unknown variable: {right[0]}");
 
-                    rightVariable = LLVM.BuildAlloca(builder, LLVM.FloatType(), "");
-                    LLVM.BuildStore(builder, constInt, rightVariable);
-                    rightVariable = LLVM.BuildLoad(builder, rightVariable, "RightValueInCompare");
-                }
             }
             else
             {
-                LLVMValueRef constDuble;
-                double parsedDoubleValue = double.Parse(CalculatingTheExpression(right, ref _valueLocaleVariable,"float")[0].Replace('.',','));
-                if (right[0][0] == '-')
+                if (right.Count == 1)
                 {
-                    var zeroValue = LLVM.ConstReal(LLVM.FloatType(), 0);
-                    var absoluteValue =
-                        LLVM.ConstReal(LLVM.FloatType(), parsedDoubleValue);
-
-                    constDuble = LLVM.BuildSub(builder, zeroValue, absoluteValue, "negative_value");
+                    string LeftValue = right[0];
+                    rightVariable = BuildValue(ref LeftValue, "float");
                 }
-                else constDuble = LLVM.ConstReal(LLVM.FloatType(), parsedDoubleValue);
-
-                if (_valueLocaleVariable[insertBlock].FirstOrDefault(varib =>
-                        varib.ContainsKey(right[0])).TryGetValue(right[0], out var tuple) &&
-                    tuple.ValueRef.Pointer != IntPtr.Zero)
-                    rightVariable = LLVM.BuildLoad(builder, tuple.ValueRef, "RifgtValueInCompare");
                 else
                 {
-                    rightVariable = LLVM.BuildAlloca(builder, LLVM.FloatType(), "");
-                    LLVM.BuildStore(builder, constDuble, rightVariable);
-                    rightVariable = LLVM.BuildLoad(builder, rightVariable, "RightValueInCompare");
+                    rightVariable = CalculatingTheExpression(right, ref _valueLocaleVariable, "float");
                 }
             }
-
-            LLVMValueRef icmpVariable = default(LLVMValueRef);
             
             switch (op)
             {
                 case "==":
-                    icmpVariable = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, leftVariable, rightVariable,
+                    return LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, leftVariable, rightVariable,
                         "compare_eq");
-                    break;
                 case "!=":
-                    icmpVariable = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, leftVariable, rightVariable,
+                    return LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, leftVariable, rightVariable,
                         "compare_ne");
-                    break;
                 case "<":
-                    icmpVariable = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLT, leftVariable, rightVariable,
+                    return LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLT, leftVariable, rightVariable,
                         "compare_lt");
-                    break;
                 case ">":
-                    icmpVariable = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGT, leftVariable, rightVariable,
+                    return LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGT, leftVariable, rightVariable,
                         "compare_gt");
-                    break;
             }
-            
-            return icmpVariable;
-        }*/
+
+            return default;
+        }
         public static LLVMValueRef CalculatingTheExpression(List<string> inputVarialbe, ref Blocks _valueLocaleVariable, string type = "int")
         {
             if (inputVarialbe.Count == 0)
@@ -296,16 +222,19 @@ namespace Kompilyatory
             if (inputVarialbe.Count == 1)
             {
                 var variable = _valueLocaleVariable.FindVariable(inputVarialbe[0].Substring(1));
-                if (inputVarialbe[0][0] == '$') return LLVM.BuildLoad(builder,variable.ValueRef, "");
+                if (variable == null) WriteWrong($"Unknown variable: {inputVarialbe[0]}");
+                
+                if (inputVarialbe[0][0] == '$') return variable.ValueRef;
 
                 string value = variable.expr[0];
                 return BuildValue(ref value);
             }
 
-            string right = inputVarialbe[0];
-            string left = inputVarialbe[1];
-
-            while (inputVarialbe[2].Length >= 1 && Char.IsLetterOrDigit(char.Parse(inputVarialbe[2][0].ToString())))
+            string right;
+            string left;
+            string op;
+            
+            while (inputVarialbe.Count > 3)
             {
                 int k = 0;
                 for (;; k++)
@@ -315,43 +244,74 @@ namespace Kompilyatory
                             break;
                 }
 
-                /*
-                AST intervalExpr = new AST();
-                intervalExpr.State = new State();
-                intervalExpr.State.Initialization = new Initialization();
-                intervalExpr.State.Initialization.expr = new List<string>();
-                intervalExpr.State.Initialization.expr.AddRange(inputVarialbe.GetRange(k - 2, 3));
-                intervalExpr.State.Initialization.type = type;
-                */
+                right = inputVarialbe[k - 2];
+                left = inputVarialbe[k - 1];
+                op = inputVarialbe[k - 0];
 
                 inputVarialbe.RemoveRange(k - 2, 3);
-                inputVarialbe.Insert(k - 2,
-                    CalculatingTheExpression(intervalExpr.State.Initialization.expr, ref _valueLocaleVariable,
-                        type)[0]);
+                string valueName = BuildExpr(BuildValue(ref left, type), BuildValue(ref right, type), op, type).GetValueName();
+                valueName = GetValue(valueName);
+                inputVarialbe.Insert(k - 2, valueName);
             }
             
-            return BuildExpr(BuildValue(ref left,type),BuildValue(ref right,type),inputVarialbe[2]);
+            right = inputVarialbe[0];
+            left = inputVarialbe[1];
+            op = inputVarialbe[2];
+            
+            return BuildExpr(BuildValue(ref left,type),BuildValue(ref right,type), op, type );
         }
-        public static LLVMValueRef BuildExpr(LLVMValueRef op1, LLVMValueRef op2, string op)
+        public static LLVMValueRef BuildExpr(LLVMValueRef op1, LLVMValueRef op2, string op, string type)
         {
+            if (op1.TypeOf().ToString() != op2.TypeOf().ToString())
+            {
+                string TempValue = GetValue(op1.GetValueName());
+                op1 = BuildValue(ref TempValue,type);
+                
+                TempValue = GetValue(op2.GetValueName());
+                op2 = BuildValue(ref TempValue,type);
+            }
+            
             switch (op)
             {
                 case "+":
-                    return LLVM.BuildAdd(builder, op1, op2, "add");
+                    if (type == "float")
+                        return LLVM.BuildFAdd(builder, op1, op2, "fadd");
+                    else
+                        return LLVM.BuildAdd(builder, op1, op2, "add");
                 case "-":
-                    return LLVM.BuildSub(builder, op1, op2, "sub");
+                    if (type == "float")
+                        return LLVM.BuildFSub(builder, op1, op2, "fsub");
+                    else
+                        return LLVM.BuildSub(builder, op1, op2, "sub");
                 case "*":
-                    return LLVM.BuildMul(builder, op1, op2, "mul");
+                    if (type == "float")
+                        return LLVM.BuildFMul(builder, op1, op2, "fmul");
+                    else
+                        return LLVM.BuildMul(builder, op1, op2, "mul");
                 case "/":
-                    return LLVM.BuildSDiv(builder, op1, op2, "div");
+                    if (type == "float")
+                        return LLVM.BuildFDiv(builder, op1, op2, "fdiv");
+                    else
+                        return LLVM.BuildSDiv(builder, op1, op2, "div");
                 default:
                     throw new ArgumentException("Invalid operator: " + op);
             }
         }
-
-        private static bool ContainsDecimal(string str)
+        private static string ContainsDecimal(string str)
         {
-            return str.Contains(".");
+            if (!str.Contains(".")) return str + ".0";
+            else return str;
+        }
+
+        public static string GetValue(string valueName)
+        {
+            int lastIndex = valueName.LastIndexOf(' ');
+            if (lastIndex >= 0)
+            {
+                valueName = valueName.Substring(lastIndex + 1);
+            }
+
+            return valueName;
         }
     }
 }

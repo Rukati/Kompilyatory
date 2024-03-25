@@ -35,7 +35,7 @@ namespace Kompilyatory
             IParseTree tree = parser.prog();
 
             MyVisitor visitor = new MyVisitor();
-            if (parser.NumberOfSyntaxErrors == 0 )
+            if (parser.NumberOfSyntaxErrors == 0)
             {
                 WriteCorect("Lexer and Parser completed successfully");
 
@@ -55,44 +55,47 @@ namespace Kompilyatory
         {
             [JsonProperty("state")]
             public State State { get; set; }
-            public void HandlingStatus(LLVMBasicBlockRef entry, ref LL.Blocks local)
+            public void HandlingStatus(ref LL.Blocks local)
             {
                 if (State.Initialization != null) Instructions.Initialization(State.Initialization, ref local);
                 else if (State.Writeln != null)
                 {
-                    foreach (var valuePrint in State.Writeln.VALUE)
+                    foreach (var value in State.Writeln.Arguments)
                     {
-                        if (valuePrint.Exists(x => x.Keys.First() == "expr"))
+                        if (!string.IsNullOrEmpty(value.Variable))
                         {
-                            //var exprValue = valuePrint.Find(x => x.Keys.First() == "expr");
-                            //Instructions.Display(LL.CalculatingTheExpression(exprValue["expr"], ref local, exprValue["value"][0])[0], exprValue["value"][0],  ref local);
+                            Instructions.Display(value.Variable,"variable",ref local);
+                            continue;
                         }
-                        else Instructions.Display(valuePrint[0][valuePrint[0].Keys.First()][0], valuePrint[0].Keys.First(),ref local);
-
+    
+                        if (!string.IsNullOrEmpty(value.Line))
+                        {
+                            Instructions.Display(value.Line,"line",ref local);
+                            continue;
+                        }
+    
+                        if (value.Expression != null)
+                        {
+                            var expr = LL.CalculatingTheExpression(value.Expression.Value, ref local, value.Expression.Type);
+                            Instructions.Display(LL.GetValue(expr.GetValueName()), "expr", ref local, value.Expression.Type);
+                        }
+    
+                        if (!string.IsNullOrEmpty(value.Numeric))
+                        {
+                            Instructions.Display(value.Numeric,"numeric",ref local);
+                        }
                     }
                 }
-                /*
-                else if (State.Writeln != null)
-                {
-                    foreach (var valuePrint in State.Writeln.VALUE)
-                    {
-                        if (valuePrint.Exists(x => x.Keys.First() == "expr"))
-                        {
-                            var exprValue = valuePrint.Find(x => x.Keys.First() == "expr");
-                            Instructions.Display(LL.CalculatingTheExpression(exprValue["expr"], ref local, exprValue["value"][0])[0], exprValue["value"][0],  ref local);
-                        }
-                        else Instructions.Display(valuePrint[0][valuePrint[0].Keys.First()][0], valuePrint[0].Keys.First(),ref local);
-
-                    }
-                }
-                else if (State.iF != null) Instructions._if(State.iF, entry,ref local);
-                else if (State.whilE != null) Instructions._while(State.whilE, entry,ref local);
+                else if (State.iF != null) Instructions._if(State.iF,ref local);
                 else if (State.changeValue != null) Instructions.ChangeValue(State.changeValue,ref local);
-                else if (State.doWhile != null) Instructions._doWhile(State.doWhile, entry,ref local);
-                else if (State.FOR != null) Instructions._for(State.FOR, entry,ref local);
-                else if (State.Function != null) Instructions.BuildFunction(State.Function,entry);
-                else if (State.CallFunction != null) Instructions.CallFunction(State.CallFunction,null,ref local);
-            */
+                /*
+                            else if (State.iF != null) Instructions._if(State.iF, entry,ref local);
+                            else if (State.whilE != null) Instructions._while(State.whilE, entry,ref local);
+                            else if (State.doWhile != null) Instructions._doWhile(State.doWhile, entry,ref local);
+                            else if (State.FOR != null) Instructions._for(State.FOR, entry,ref local);
+                            else if (State.Function != null) Instructions.BuildFunction(State.Function,entry);
+                            else if (State.CallFunction != null) Instructions.CallFunction(State.CallFunction,null,ref local);
+                        */
             }
         }
         public class Initialization
@@ -100,6 +103,7 @@ namespace Kompilyatory
             public string type { get; set; }
             [JsonProperty("ID")] public string Id { get; set; }
             public List<string> expr { get; set; }
+            public LLVMValueRef VariableRef { get; set; }
             public LLVMValueRef ValueRef { get; set; }
             public CallFunction func { get; set; }
         }
@@ -160,7 +164,21 @@ namespace Kompilyatory
         }
         public class Write
         {
-            [JsonProperty("value")] public List<List<Dictionary<string,List<string>>>> VALUE { get; set; }
+            public List<WriteContent> Arguments { get; set; }
+
+            public class WriteContent
+            {
+                [JsonProperty("variable")] public string Variable { get; set; }
+                [JsonProperty("line")] public string Line { get; set; }
+                [JsonProperty("Expr")] public WriteExpr Expression { get; set; }
+                [JsonProperty("numeric")] public string Numeric { get; set; }
+
+                public class WriteExpr
+                {
+                    [JsonProperty("value")] public List<string> Value { get; set; }
+                    [JsonProperty("type")] public string Type { get; set; }
+                }
+            }
         }
         static public List<AST> Ast = new List<AST>();
         static public void WriteCorect(string text)
