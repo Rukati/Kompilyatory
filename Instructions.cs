@@ -84,14 +84,17 @@ namespace Kompilyatory
             var block = new Blocks() { block = Block, variable = new Dictionary<string, Initialization>() };
             Area.Function.Push(block);
             LLVM.PositionBuilderAtEnd(builder, Block);
-
-           
+            
             for (int i = 0; i < function.args.Count; i++)
             {
                 var paramValue = LLVM.GetParam(Function, (uint)i);
-                LLVM.SetValueName(paramValue,$"{function.args[i].Id}");
+                LLVM.SetValueName(paramValue,$"argc_{i+1}");
+
                 var variable = function.args[i];
-                variable.ValueRef= paramValue;
+                variable.VariableRef = BuildVariable(ref variable);
+                
+                LLVM.BuildStore(builder, paramValue, variable.VariableRef);
+                block.variable.Add(function.args[i].Id,variable);
             }
 
             foreach (var item in function.body) item.HandlingStatus(ref Area);
@@ -114,7 +117,7 @@ namespace Kompilyatory
                     }
                     else
                     {
-                        var ret = function.Return[0].Substring(1);
+                        var ret = function.Return[0];
                         LLVM.BuildRet(builder,BuildValue(ref ret, ref Area, function.type));
                     }
                 }
@@ -128,7 +131,6 @@ namespace Kompilyatory
             
             LLVM.PositionBuilderAtEnd(builder, Block);
         }
-        
         public static void ChangeValue(ChangeValue stateInfo,
             ref AreaOfVisibility valueLocaleVariable)
         {
@@ -234,7 +236,6 @@ namespace Kompilyatory
 
             LLVM.PositionBuilderAtEnd(builder, endBlock);
         }
-
         public static void _for(For @for,
             ref AreaOfVisibility valueLocaleVariable)
         {

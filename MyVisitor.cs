@@ -241,14 +241,23 @@ namespace Kompilyatory
         {
             if (context.parameter().Length > 0)
             {
+                argc.Add(
+                    new Dictionary<string, string>()
+                    {
+                        { "type", context.TYPE().GetText() },
+                        { "ID", context.ID().GetText() },
+                    });
                 FuncArgc(context.parameter()[0],ref argc);
             }
-            argc.Add(
-                new Dictionary<string, string>()
-                {
-                    { "type", context.TYPE().GetText() },
-                    { "ID", context.ID().GetText() },
-                });
+            else
+            {
+                argc.Add(
+                    new Dictionary<string, string>()
+                    {
+                        { "type", context.TYPE().GetText() },
+                        { "ID", context.ID().GetText() },
+                    });
+            }
         }
         private object BodyPrint([NotNull] ExprParser.PrintContext context, bool node = false)
         {
