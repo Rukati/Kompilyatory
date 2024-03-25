@@ -88,11 +88,11 @@ namespace Kompilyatory
                 }
                 else if (State.iF != null) Instructions._if(State.iF,ref local);
                 else if (State.changeValue != null) Instructions.ChangeValue(State.changeValue,ref local);
+                else if (State.whilE != null) Instructions._while(State.whilE,ref local);
+                else if (State.doWhile != null) Instructions._doWhile(State.doWhile,ref local);
+                else if (State.FOR != null) Instructions._for(State.FOR,ref local);
+
                 /*
-                            else if (State.iF != null) Instructions._if(State.iF, entry,ref local);
-                            else if (State.whilE != null) Instructions._while(State.whilE, entry,ref local);
-                            else if (State.doWhile != null) Instructions._doWhile(State.doWhile, entry,ref local);
-                            else if (State.FOR != null) Instructions._for(State.FOR, entry,ref local);
                             else if (State.Function != null) Instructions.BuildFunction(State.Function,entry);
                             else if (State.CallFunction != null) Instructions.CallFunction(State.CallFunction,null,ref local);
                         */

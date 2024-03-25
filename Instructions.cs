@@ -162,8 +162,36 @@ namespace Kompilyatory
             ref Blocks valueLocaleVariable)
         {
             Initialization variable = valueLocaleVariable.FindVariable(stateInfo.ID);
+            if (variable == null) WriteWrong($"Unknown variable: {stateInfo.ID}");
             LLVMTypeRef _lLVMType = GetTypeRef(variable.type);
+
+            if (variable.type == "int")
+            {
+                long parsedValueInt = long.Parse(GetValue(CalculatingTheExpression(stateInfo.expr,ref valueLocaleVariable,"int").GetValueName()));
+                long differenceValue = parsedValueInt - long.Parse(variable.expr[0]);
+                LLVMValueRef constInt;
+
+                if (stateInfo.expr[0][0] == '-')
+                {
+                    var zeroValue = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(0));
+                    var absoluteValue = LLVM.ConstInt(LLVM.Int32Type(), (ulong)Math.Abs(differenceValue), new LLVMBool(0));
+
+                    constInt = LLVM.BuildSub(builder, zeroValue, absoluteValue, "negative_value");
+                }
+                else constInt = LLVM.ConstInt(LLVM.Int32Type(), (ulong)differenceValue, new LLVMBool(0));
+
+                var loadValue = LLVM.BuildLoad(builder, variable.VariableRef, "");
+                var changeValueInt = LLVM.BuildAdd(builder, loadValue, constInt, "changeValue");
+                LLVM.BuildStore(builder, changeValueInt, variable.VariableRef);
+            }
+            else
+            {
+                
+            }
+            
             variable.ValueRef = CalculatingTheExpression(stateInfo.expr, ref valueLocaleVariable, variable.type);
+          
+            
         }
         public static void _while(While stateWhile, ref Blocks valueLocaleVariable)
         {
@@ -180,13 +208,12 @@ namespace Kompilyatory
             LLVM.PositionBuilderAtEnd(builder, loopBlock);
             Blocks blockIf = new Blocks() { block = loopBlock,variable = new Dictionary<string, Initialization>()};
             AreaOfVisibility.Function.Push(blockIf);
-            foreach (AST astNode in stateWhile.body) astNode.HandlingStatus(ref valueLocaleVariable);
+            foreach (AST astNode in stateWhile.body) astNode.HandlingStatus(ref blockIf);
             AreaOfVisibility.Function.Pop();
             LLVM.BuildBr(builder, conditionBlock);
 
             LLVM.PositionBuilderAtEnd(builder, endBlock);
         }
-        
         public static void _if(If stateIf, ref Blocks valueLocaleVariable)
         {
             LLVMBasicBlockRef ifTrue = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(valueLocaleVariable.block), "if_true");
@@ -214,10 +241,8 @@ namespace Kompilyatory
 
             LLVM.PositionBuilderAtEnd(builder, EndBlock);
         }
-
-        /*
-        public static void _doWhile( DoWhile stateDoWhile, LLVMBasicBlockRef entryBlock,
-            ref Dictionary<LLVMBasicBlockRef, List<Dictionary<string, Initialization>>> valueLocaleVariable)
+        public static void _doWhile( DoWhile stateDoWhile,
+            ref Blocks valueLocaleVariable)
         {
             LLVMBasicBlockRef conditionBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder)), "while_cond");
             LLVMBasicBlockRef loopBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder)), "while_loop");
@@ -226,10 +251,10 @@ namespace Kompilyatory
             LLVM.BuildBr(builder, loopBlock);
 
             LLVM.PositionBuilderAtEnd(builder, loopBlock);
-
-            valueLocaleVariable.Add(LLVM.GetInsertBlock(LL.builder), new List<Dictionary<string, Initialization>>());
-            foreach (AST astNode in stateDoWhile.body) astNode.HandlingStatus(entryBlock, ref valueLocaleVariable);
-            valueLocaleVariable.Remove(LLVM.GetInsertBlock(LL.builder));
+            Blocks blockIf = new Blocks() { block = loopBlock,variable = new Dictionary<string, Initialization>()};
+            AreaOfVisibility.Function.Push(blockIf);
+            foreach (AST astNode in stateDoWhile.body) astNode.HandlingStatus(ref blockIf);
+            AreaOfVisibility.Function.Pop();
             LLVM.BuildBr(builder, conditionBlock);
 
             LLVM.PositionBuilderAtEnd(builder, conditionBlock);
@@ -238,38 +263,37 @@ namespace Kompilyatory
 
             LLVM.PositionBuilderAtEnd(builder, endBlock);
         }
-        public static void _for(For @for, LLVMBasicBlockRef entryBlock,
-            ref Dictionary<LLVMBasicBlockRef, List<Dictionary<string, Initialization>>> valueLocaleVariable)
+        public static void _for(For @for,
+            ref Blocks valueLocaleVariable)
         {
 
             LLVMBasicBlockRef conditionBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder)), "for_cond");
             LLVMBasicBlockRef loopBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder)), "for_loop");
+            LLVMBasicBlockRef bodyBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder)), "for_body");
             LLVMBasicBlockRef endBlock = LLVM.AppendBasicBlock(LLVM.GetBasicBlockParent(LLVM.GetInsertBlock(builder)), "for_end");
-            if (@for.Init.ID != "") Initialization(@for.Init, ref valueLocaleVariable);
-
+            
             LLVM.BuildBr(builder, conditionBlock);
             LLVM.PositionBuilderAtEnd(builder, conditionBlock);
-            valueLocaleVariable.Add(LLVM.GetInsertBlock(LL.builder), new List<Dictionary<string, Initialization>>());
-
-            LLVM.BuildCondBr(builder, _BuildEquation(@for.Equation.left, @for.Equation.right, @for.Equation.Operator, ref valueLocaleVariable), loopBlock, endBlock);
+            
+            Blocks blockIf = new Blocks() { block = conditionBlock,variable = new Dictionary<string, Initialization>()};
+            AreaOfVisibility.Function.Push(blockIf);
+            if (@for.Init.Id != "") Initialization(@for.Init, ref blockIf);
+            LLVM.BuildBr(builder, loopBlock);
             LLVM.PositionBuilderAtEnd(builder, loopBlock);
-            valueLocaleVariable.Add(LLVM.GetInsertBlock(LL.builder), new List<Dictionary<string, Initialization>>());
 
-            foreach (AST astNode in @for.body) astNode.HandlingStatus(entryBlock, ref valueLocaleVariable);
-            ChangeValue(@for.changeValue, ref valueLocaleVariable);
+            LLVM.BuildCondBr(builder, _BuildEquation(@for.Equation.left, @for.Equation.right, @for.Equation.Operator, ref valueLocaleVariable), bodyBlock, endBlock);
+            
+            Blocks blockBody = new Blocks() { block = bodyBlock,variable = new Dictionary<string, Initialization>()};
+            LLVM.PositionBuilderAtEnd(builder, bodyBlock);
+            AreaOfVisibility.Function.Push(blockBody);
 
-            if (@for.Init.ID != "")
-            {
-                valueLocaleVariable.Remove(LLVM.GetInsertBlock(LL.builder));
-                var block = FindBlockWithVariable(@for.Init.ID, entryBlock, ref valueLocaleVariable).Item1;
-                valueLocaleVariable[block].RemoveAll(dict => dict.ContainsKey(@for.Init.ID));
-            }
-
-            LLVM.BuildBr(builder, conditionBlock);
-
+            foreach (AST astNode in @for.body) astNode.HandlingStatus(ref blockBody);
+            ChangeValue(@for.changeValue, ref blockBody);
+            AreaOfVisibility.Function.Pop();
+            AreaOfVisibility.Function.Pop();
+            LLVM.BuildBr(builder, loopBlock);
             LLVM.PositionBuilderAtEnd(builder, endBlock);
         }
-        */
         public static void Initialization(Initialization initValue, ref Blocks blocks)
         {
             var insertBlock = LLVM.GetInsertBlock(builder);
@@ -281,17 +305,7 @@ namespace Kompilyatory
             if (initValue.func != null)
                 if (initValue.func.ID != null) {CallFunction(initValue.func,initValue,ref valueLocaleVariable); return;}
                 */
-            
-            /*
-            if (initValue.EXPR != null)
-            {
-                if (initValue.EXPR.Count >= 3)
-                {
-                    initValue.EXPR = CalculatingTheExpression(initValue.EXPR, ref valueLocaleVariable, initValue.TYPE);
-                }
-            }*/
-           // else initValue.expr = new List<string>();
-
+      
             var variable = BuildVariable(ref initValue);
             initValue.VariableRef = variable;
             blocks.variable.Add(initValue.Id, initValue );
@@ -345,7 +359,7 @@ namespace Kompilyatory
                 else
                 {
                     formatString = LLVM.BuildGlobalStringPtr(builder, "%d\n\0", $"Format_string");
-                    args = new LLVMValueRef[] { formatString, variable.ValueRef };
+                    args = new LLVMValueRef[] { formatString, LoadValue(variable.VariableRef) };
                 }
             }
             else
@@ -368,6 +382,10 @@ namespace Kompilyatory
 
             var getPuts = LLVM.GetNamedFunction(module, "printf");
             LLVM.BuildCall(builder, getPuts, args, $"");
+        }
+        private static LLVMValueRef LoadValue(LLVMValueRef val)
+        {
+            return LLVM.BuildLoad(builder, val, "");
         }
     }
 }

@@ -89,7 +89,7 @@ namespace Kompilyatory
                 case "int":
                     return LLVMTypeRef.Int32Type();
                 case "float":
-                    return LLVMTypeRef.DoubleType();
+                    return LLVMTypeRef.FloatType();
                 default:
                     WriteWrong($"Incorrect data type \"{type}\"");
                     break;
@@ -153,7 +153,8 @@ namespace Kompilyatory
                 var variable = _valueLocaleVariable.FindVariable(left[0]);
                 if (variable != null)
                 {
-                    leftVariable = LLVM.BuildSIToFP(builder, variable.ValueRef ,LLVM.FloatType(), "LeftValueInCompare");
+                    leftVariable = LLVM.BuildLoad(builder, variable.VariableRef, "");
+                    leftVariable = LLVM.BuildSIToFP(builder, leftVariable ,LLVM.FloatType(), "LeftValueInCompare");
                 }
                 else
                     WriteWrong($"Unknown variable: {left[0]}");
@@ -177,7 +178,9 @@ namespace Kompilyatory
                 var variable = _valueLocaleVariable.FindVariable(right[0]);
                 if (variable != null)
                 {
-                    rightVariable = LLVM.BuildSIToFP(builder, variable.ValueRef ,LLVM.FloatType(), "LeftValueInCompare");
+                    rightVariable = LLVM.BuildLoad(builder, variable.VariableRef, "");
+                    rightVariable =
+                        LLVM.BuildSIToFP(builder, rightVariable, LLVM.FloatType(), "LeftValueInCompare");
                 }
                 else 
                     WriteWrong($"Unknown variable: {right[0]}");
@@ -195,24 +198,29 @@ namespace Kompilyatory
                     rightVariable = CalculatingTheExpression(right, ref _valueLocaleVariable, "float");
                 }
             }
-            
+
+            LLVMValueRef compare = default(LLVMValueRef);
             switch (op)
             {
                 case "==":
-                    return LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, leftVariable, rightVariable,
+                    compare = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOEQ, leftVariable, rightVariable,
                         "compare_eq");
+                    break;
                 case "!=":
-                    return LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, leftVariable, rightVariable,
+                    compare = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealONE, leftVariable, rightVariable,
                         "compare_ne");
+                    break;
                 case "<":
-                    return LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLT, leftVariable, rightVariable,
+                    compare = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLT, leftVariable, rightVariable,
                         "compare_lt");
+                    break;
                 case ">":
-                    return LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGT, leftVariable, rightVariable,
+                    compare = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGT, leftVariable, rightVariable,
                         "compare_gt");
+                    break;
             }
 
-            return default;
+            return compare;
         }
         public static LLVMValueRef CalculatingTheExpression(List<string> inputVarialbe, ref Blocks _valueLocaleVariable, string type = "int")
         {
@@ -297,12 +305,6 @@ namespace Kompilyatory
                     throw new ArgumentException("Invalid operator: " + op);
             }
         }
-        private static string ContainsDecimal(string str)
-        {
-            if (!str.Contains(".")) return str + ".0";
-            else return str;
-        }
-
         public static string GetValue(string valueName)
         {
             int lastIndex = valueName.LastIndexOf(' ');
