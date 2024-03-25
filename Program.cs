@@ -55,9 +55,13 @@ namespace Kompilyatory
         {
             [JsonProperty("state")]
             public State State { get; set; }
-            public void HandlingStatus(ref LL.Blocks local)
+            public void HandlingStatus(ref LL.AreaOfVisibility local)
             {
-                if (State.Initialization != null) Instructions.Initialization(State.Initialization, ref local);
+                if (State.Initialization != null)
+                {
+                    var variable = State.Initialization;
+                    Instructions.Initialization(ref variable, ref local);
+                }
                 else if (State.Writeln != null)
                 {
                     foreach (var value in State.Writeln.Arguments)
@@ -91,11 +95,8 @@ namespace Kompilyatory
                 else if (State.whilE != null) Instructions._while(State.whilE,ref local);
                 else if (State.doWhile != null) Instructions._doWhile(State.doWhile,ref local);
                 else if (State.FOR != null) Instructions._for(State.FOR,ref local);
-
-                /*
-                            else if (State.Function != null) Instructions.BuildFunction(State.Function,entry);
-                            else if (State.CallFunction != null) Instructions.CallFunction(State.CallFunction,null,ref local);
-                        */
+                else if (State.Function != null) Instructions.BuildFunction(State.Function);
+                else if (State.CallFunction != null) Instructions.CallFunction(State.CallFunction, null,ref local);
             }
         }
         public class Initialization

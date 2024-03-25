@@ -17,21 +17,20 @@ namespace Kompilyatory
 
         public class AreaOfVisibility
         {
-            static public Stack<Blocks> Function = new Stack<Blocks>();
+            public Stack<Blocks> Function = new Stack<Blocks>();
+            public Initialization FindVariable(string name)
+            {
+                foreach (var block in Function)
+                {
+                    if (block.variable.TryGetValue(name, out Initialization value)) return value;
+                }
+                return null;
+            }
         }
         public class Blocks
         {
             public LLVMBasicBlockRef block { get; set; }
             public Dictionary<string, Initialization> variable;
-            public Initialization FindVariable(string name)
-            {
-                if (variable.TryGetValue(name, out var value)) return value;
-                foreach (var block in AreaOfVisibility.Function)
-                {
-                    if (block.variable.TryGetValue(name, out value)) return value;
-                }
-                return null;
-            }
         }
         public static void Gen()
         {
@@ -40,25 +39,34 @@ namespace Kompilyatory
             LLVM.InitializeX86TargetMC();
             LLVM.InitializeX86AsmParser();
             LLVM.InitializeX86AsmPrinter();
-            
-            var functionType = LLVM.FunctionType(LLVM.VoidType(), new LLVMTypeRef[] { }, new LLVMBool(0));
-            var mainFunction = LLVM.AddFunction(module, "main", functionType);
-            var entry = LLVM.AppendBasicBlock(mainFunction, "main");
-            LLVM.PositionBuilderAtEnd(builder, entry);
 
             LLVMTypeRef retType = LLVM.FunctionType(LLVMTypeRef.VoidType(),
                 new LLVMTypeRef[] { LLVMTypeRef.PointerType(LLVMTypeRef.Int8Type(), 0), }, true);
             LLVM.AddFunction(module, "printf", retType);
 
-            AreaOfVisibility.Function.Push(new Blocks(){block = entry, variable = new Dictionary<string, Initialization>()});
-            var blocks = AreaOfVisibility.Function.Peek();
             foreach (var item in Ast)
             {
-                item.HandlingStatus(ref blocks);
+                if (item.State.Function == null) break;
+                else Instructions.BuildFunction(item.State.Function);
+            }
+            
+            var functionType = LLVM.FunctionType(LLVM.VoidType(), new LLVMTypeRef[] { }, new LLVMBool(0));
+            var mainFunction = LLVM.AddFunction(module, "main", functionType);
+            var entry = LLVM.AppendBasicBlock(mainFunction, "main");
+            LLVM.PositionBuilderAtEnd(builder, entry);
+            
+            AreaOfVisibility areaOfVisibility = new AreaOfVisibility();
+            areaOfVisibility.Function.Push(new Blocks(){block = entry, variable = new Dictionary<string, Initialization>()});
+            
+            foreach (var item in Ast)
+            {
+                if (item.State.Function != null) continue;
+                item.HandlingStatus(ref areaOfVisibility);
             }
             
             // Ничего не возвращаем
             LLVM.BuildRetVoid(builder);
+            
             // Выводим модуль в консоль
             LLVM.DumpModule(module);
 
@@ -75,10 +83,10 @@ namespace Kompilyatory
             LLVMTypeRef _lLVMType = GetTypeRef(initValue.type);
             return LLVM.BuildAlloca(builder, _lLVMType, initValue.Id);
         }
-        public static void StoreValue(ref Initialization initValue)
+        public static void StoreValue(ref Initialization initValue, ref AreaOfVisibility areaOfVisibility)
         {
             string value = initValue.expr[0];
-            var RefValue = BuildValue(ref value, initValue.type);
+            var RefValue = BuildValue(ref value, ref areaOfVisibility, initValue.type);
             LLVM.BuildStore(builder, RefValue , initValue.VariableRef);
             initValue.ValueRef = RefValue;
         }
@@ -90,6 +98,8 @@ namespace Kompilyatory
                     return LLVMTypeRef.Int32Type();
                 case "float":
                     return LLVMTypeRef.FloatType();
+                case "void":
+                    return LLVMTypeRef.VoidType();
                 default:
                     WriteWrong($"Incorrect data type \"{type}\"");
                     break;
@@ -97,13 +107,13 @@ namespace Kompilyatory
 
             return default(LLVMTypeRef);
         }
-        public static LLVMValueRef BuildValue(ref string initValue, string type = "int")
+        public static LLVMValueRef BuildValue(ref string initValue, ref AreaOfVisibility areaOfVisibility, string type = "int")
         {
             LLVMTypeRef _lLVMType = GetTypeRef(type);
             LLVMValueRef value = default(LLVMValueRef);
             if (initValue[0] == '$')
             {
-                foreach (var block in AreaOfVisibility.Function)
+                foreach (var block in areaOfVisibility.Function)
                 {
                     if (block.variable.TryGetValue(initValue.Substring(1), out Initialization variableValue)) return variableValue.ValueRef;
                 }
@@ -141,7 +151,7 @@ namespace Kompilyatory
             return value;
         }
         public static LLVMValueRef _BuildEquation(List<string> left, List<string> right, string op,
-            ref Blocks _valueLocaleVariable)
+            ref AreaOfVisibility _valueLocaleVariable)
         {
             var insertBlock = LLVM.GetInsertBlock(builder);
             LLVMValueRef leftVariable = default(LLVMValueRef);
@@ -164,7 +174,7 @@ namespace Kompilyatory
                 if (left.Count == 1)
                 {
                     string LeftValue = left[0];
-                    leftVariable = BuildValue(ref LeftValue, "float");
+                    leftVariable = BuildValue(ref LeftValue,ref _valueLocaleVariable, "float");
                 }
                 else
                 {
@@ -191,7 +201,7 @@ namespace Kompilyatory
                 if (right.Count == 1)
                 {
                     string LeftValue = right[0];
-                    rightVariable = BuildValue(ref LeftValue, "float");
+                    rightVariable = BuildValue(ref LeftValue,ref _valueLocaleVariable, "float");
                 }
                 else
                 {
@@ -222,7 +232,7 @@ namespace Kompilyatory
 
             return compare;
         }
-        public static LLVMValueRef CalculatingTheExpression(List<string> inputVarialbe, ref Blocks _valueLocaleVariable, string type = "int")
+        public static LLVMValueRef CalculatingTheExpression(List<string> inputVarialbe, ref AreaOfVisibility _valueLocaleVariable, string type = "int")
         {
             if (inputVarialbe.Count == 0)
                 WriteWrong($"An uninitialized variable was used");
@@ -235,7 +245,7 @@ namespace Kompilyatory
                 if (inputVarialbe[0][0] == '$') return variable.ValueRef;
 
                 string value = variable.expr[0];
-                return BuildValue(ref value);
+                return BuildValue(ref value,ref _valueLocaleVariable);
             }
 
             string right;
@@ -257,7 +267,7 @@ namespace Kompilyatory
                 op = inputVarialbe[k - 0];
 
                 inputVarialbe.RemoveRange(k - 2, 3);
-                string valueName = BuildExpr(BuildValue(ref left, type), BuildValue(ref right, type), op, type).GetValueName();
+                string valueName = BuildExpr(BuildValue(ref left,ref _valueLocaleVariable, type), BuildValue(ref right, ref _valueLocaleVariable, type), op, type, ref _valueLocaleVariable).GetValueName();
                 valueName = GetValue(valueName);
                 inputVarialbe.Insert(k - 2, valueName);
             }
@@ -266,17 +276,17 @@ namespace Kompilyatory
             left = inputVarialbe[1];
             op = inputVarialbe[2];
             
-            return BuildExpr(BuildValue(ref left,type),BuildValue(ref right,type), op, type );
+            return BuildExpr(BuildValue(ref left,ref _valueLocaleVariable,type),BuildValue(ref right,ref _valueLocaleVariable,type), op, type , ref _valueLocaleVariable);
         }
-        public static LLVMValueRef BuildExpr(LLVMValueRef op1, LLVMValueRef op2, string op, string type)
+        public static LLVMValueRef BuildExpr(LLVMValueRef op1, LLVMValueRef op2, string op, string type, ref AreaOfVisibility areaOfVisibility)
         {
             if (op1.TypeOf().ToString() != op2.TypeOf().ToString())
             {
                 string TempValue = GetValue(op1.GetValueName());
-                op1 = BuildValue(ref TempValue,type);
+                op1 = BuildValue(ref TempValue,ref areaOfVisibility,type);
                 
                 TempValue = GetValue(op2.GetValueName());
-                op2 = BuildValue(ref TempValue,type);
+                op2 = BuildValue(ref TempValue,ref areaOfVisibility,type);
             }
             
             switch (op)
