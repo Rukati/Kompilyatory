@@ -64,36 +64,74 @@ namespace Kompilyatory
                 }
                 else if (State.Writeln != null)
                 {
-                    foreach (var value in State.Writeln.Arguments)
+                    List<LLVMValueRef> listArgs = new List<LLVMValueRef>();
+                    StringBuilder format_string = new StringBuilder();
+
+                    if (State.Writeln.Arguments.Count != 0)
                     {
-                        if (!string.IsNullOrEmpty(value.Variable))
+                        foreach (var value in State.Writeln.Arguments)
                         {
-                            Instructions.Display(value.Variable,"variable",ref local);
-                            continue;
-                        }
-    
-                        if (!string.IsNullOrEmpty(value.Line))
-                        {
-                            Instructions.Display(value.Line,"line",ref local);
-                            continue;
-                        }
-    
-                        if (value.Expression != null)
-                        {
-                            var expr = LL.CalculatingTheExpression(value.Expression.Value, ref local, value.Expression.Type);
-                            Instructions.Display(LL.GetValue(expr.GetValueName()), "expr", ref local, value.Expression.Type);
-                        }
-    
-                        if (!string.IsNullOrEmpty(value.Numeric))
-                        {
-                            Instructions.Display(value.Numeric,"numeric",ref local);
+                            if (!string.IsNullOrEmpty(value.Variable))
+                            {
+                                Initialization variable;
+                                variable = local.FindVariable(value.Variable);
+                                if (variable == null) // Переменная не найдена
+                                    WriteWrong($"Unknown variable \"{value.Variable}\" in display instruction");
+
+                                if (variable.type == "float")
+                                    format_string.Append("%0.1f");
+                                else format_string.Append("%d");
+                                
+                                Instructions.Display(value.Variable, "variable", ref local, ref listArgs, variable:variable);
+                                continue;
+                            }
+
+                            if (!string.IsNullOrEmpty(value.Line))
+                            {
+                                format_string.Append("%s");
+                                Instructions.Display(value.Line, "line", ref local, ref listArgs);
+                                continue;
+                            }
+
+                            if (value.Expression != null)
+                            {
+                                var expr = LL.CalculatingTheExpression(value.Expression.Value, ref local,
+                                    value.Expression.Type);
+                                if (value.Expression.Type == "float")
+                                    format_string.Append("%0.1f");
+                                else format_string.Append("%d");
+
+                                Instructions.Display(LL.GetValue(expr.GetValueName()), "expr", ref local, ref listArgs,value.Expression.Type);
+                            }
+
+                            if (!string.IsNullOrEmpty(value.Numeric))
+                            {
+                                format_string.Append("%s");
+                                Instructions.Display(value.Numeric, "numeric", ref local, ref listArgs);
+                            }
                         }
                     }
+                    else
+                    {
+                        format_string.Append("%s");
+                        Instructions.Display("", "line", ref local, ref listArgs);
+                    }
+                    
+                    var getPuts = LLVM.GetNamedFunction(LL.module, "printf");
+                    var str = LLVM.BuildGlobalStringPtr(LL.builder, State.Writeln.ln ? format_string.ToString() + '\n' : format_string.ToString(), $"Format_string");
+                    listArgs.Insert(0,str);
+                    LLVM.BuildCall(LL.builder, getPuts, listArgs.ToArray(), $"");
                 }
                 else if (State.iF != null) Instructions._if(State.iF,ref local);
                 else if (State.changeValue != null) Instructions.ChangeValue(State.changeValue,ref local);
-                else if (State.whilE != null) Instructions._while(State.whilE,ref local);
-                else if (State.doWhile != null) Instructions._doWhile(State.doWhile,ref local);
+                else if (State.whilE != null)
+                {
+                    if (State.whilE.body.Count > 0) Instructions._while(State.whilE, ref local);
+                }
+                else if (State.doWhile != null)
+                {
+                    if (State.doWhile.body.Count > 0) Instructions._doWhile(State.doWhile, ref local);
+                }
                 else if (State.FOR != null) Instructions._for(State.FOR,ref local);
                 else if (State.Function != null) Instructions.BuildFunction(State.Function);
                 else if (State.CallFunction != null) Instructions.CallFunction(State.CallFunction, null,ref local);
@@ -114,8 +152,7 @@ namespace Kompilyatory
             public List<Initialization> args { get; set; }
             public string type { get; set; }
             public List<AST> body { get; set; }
-            [JsonProperty("return")]
-            public List<string> Return { get; set; }
+            [JsonProperty("return")] public List<string> Return { get; set; }
         }
         public class CallFunction
         {
@@ -166,6 +203,7 @@ namespace Kompilyatory
         public class Write
         {
             public List<WriteContent> Arguments { get; set; }
+            [JsonProperty("ln")] public bool ln { get; set; }
 
             public class WriteContent
             {
@@ -173,7 +211,6 @@ namespace Kompilyatory
                 [JsonProperty("line")] public string Line { get; set; }
                 [JsonProperty("Expr")] public WriteExpr Expression { get; set; }
                 [JsonProperty("numeric")] public string Numeric { get; set; }
-
                 public class WriteExpr
                 {
                     [JsonProperty("value")] public List<string> Value { get; set; }

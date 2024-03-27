@@ -32,19 +32,8 @@ namespace Kompilyatory
                 {
                     LLVMValueRef functionValue = LLVM.GetNamedFunction(module, function.ID);
                     LLVMTypeRef functionType = LLVM.TypeOf(functionValue);
-                    var typeCode = LLVM.GetTypeKind(functionType);
-                    switch (typeCode)
-                    {
-                        case LLVMTypeKind.LLVMFloatTypeKind:
-                            args[index] = LLVM.ConstReal(LLVM.FloatType(), float.Parse(argument));
-                            break;
-                        case LLVMTypeKind.LLVMIntegerTypeKind:
-                            long parsedValueInt = long.Parse(argument);
-                            long differenceValue = parsedValueInt - long.Parse(variable.expr[0]);
-                            var initValue = differenceValue.ToString();
-                            args[index] = BuildValue(ref initValue, ref local, "int");
-                            break;
-                    }
+                    string str = argument;
+                    args[index] = BuildValue(ref str, ref local);
                 }
                 index++;
             }
@@ -92,7 +81,7 @@ namespace Kompilyatory
 
                 var variable = function.args[i];
                 variable.VariableRef = BuildVariable(ref variable);
-                
+                variable.ValueRef = paramValue;
                 LLVM.BuildStore(builder, paramValue, variable.VariableRef);
                 block.variable.Add(function.args[i].Id,variable);
             }
@@ -140,31 +129,82 @@ namespace Kompilyatory
 
             if (variable.type == "int")
             {
-                long parsedValueInt = long.Parse(GetValue(CalculatingTheExpression(stateInfo.expr,ref valueLocaleVariable,"int").GetValueName()));
-                long differenceValue = parsedValueInt - long.Parse(variable.expr[0]);
-                LLVMValueRef constInt;
-
-                if (stateInfo.expr[0][0] == '-')
+                if (stateInfo.expr.Count() == 1)
                 {
-                    var zeroValue = LLVM.ConstInt(LLVM.Int32Type(), 0, new LLVMBool(0));
-                    var absoluteValue = LLVM.ConstInt(LLVM.Int32Type(), (ulong)Math.Abs(differenceValue), new LLVMBool(0));
-
-                    constInt = LLVM.BuildSub(builder, zeroValue, absoluteValue, "negative_value");
+                    if (stateInfo.expr[0][0] == '$')
+                    {
+                        var variableWithNewValue = valueLocaleVariable.FindVariable(stateInfo.expr[0].Substring(1));
+                        if (variableWithNewValue.expr.Count == 0) WriteWrong($"An uninitialized variable was used");
+                        if (variableWithNewValue.type != "int")
+                        {
+                            string initValue = variableWithNewValue.expr[0];
+                            variable.ValueRef = BuildValue(ref initValue, ref valueLocaleVariable, "int");
+                            LLVM.BuildStore(builder, variable.ValueRef, variable.VariableRef);
+                            variable.expr = variableWithNewValue.expr;
+                        }
+                        else
+                        {
+                            variable.ValueRef = variableWithNewValue.ValueRef;
+                            variable.expr = variableWithNewValue.expr;
+                        }
+                    }
+                    else
+                    {
+                        variable.expr = stateInfo.expr;
+                        string initValue = stateInfo.expr[0];
+                        variable.ValueRef = BuildValue(ref initValue, ref valueLocaleVariable, variable.type);
+                        LLVM.BuildStore(builder, variable.ValueRef, variable.VariableRef);
+                    }
                 }
-                else constInt = LLVM.ConstInt(LLVM.Int32Type(), (ulong)differenceValue, new LLVMBool(0));
+                else
+                {
+                    var value = CalculatingTheExpression(stateInfo.expr, ref valueLocaleVariable, variable.type);
 
-                var loadValue = LLVM.BuildLoad(builder, variable.VariableRef, "");
-                var changeValueInt = LLVM.BuildAdd(builder, loadValue, constInt, "changeValue");
-                LLVM.BuildStore(builder, changeValueInt, variable.VariableRef);
+                    if (variable.type == "int") value = LLVM.BuildFPToSI(builder, value, GetTypeRef(variable.type), "");
+                    else value = LLVM.BuildSIToFP(builder, value ,GetTypeRef(variable.type), "");
+                    LLVM.BuildStore(builder, value, variable.VariableRef);
+                    variable.ValueRef = value;
+                }
             }
             else
             {
-                
+                if (stateInfo.expr.Count() == 1)
+                {
+                    if (stateInfo.expr[0][0] == '$')
+                    {
+                        var variableWithNewValue = valueLocaleVariable.FindVariable(stateInfo.expr[0].Substring(1));
+                        if (variableWithNewValue.expr.Count == 0) WriteWrong($"An uninitialized variable was used");
+                        if (variableWithNewValue.type != "float")
+                        {
+                            string initValue = variableWithNewValue.expr[0];
+                            variable.ValueRef = BuildValue(ref initValue, ref valueLocaleVariable, "float");
+                            LLVM.BuildStore(builder, variable.ValueRef, variable.VariableRef);
+                            variable.expr = variableWithNewValue.expr;
+                        }
+                        else
+                        {
+                            variable.ValueRef = variableWithNewValue.ValueRef;
+                            variable.expr = variableWithNewValue.expr;
+                        }
+                    }
+                    else
+                    {
+                        variable.expr = stateInfo.expr;
+                        string initValue = stateInfo.expr[0];
+                        variable.ValueRef = BuildValue(ref initValue, ref valueLocaleVariable, variable.type);
+                        LLVM.BuildStore(builder, variable.ValueRef, variable.VariableRef);
+                    }
+                }
+                else
+                {
+                    var value = CalculatingTheExpression(stateInfo.expr, ref valueLocaleVariable, variable.type);
+
+                    if (variable.type == "int") value = LLVM.BuildFPToSI(builder, value, GetTypeRef(variable.type), "");
+                    else value = LLVM.BuildSIToFP(builder, value ,GetTypeRef(variable.type), "");
+                    LLVM.BuildStore(builder, value, variable.VariableRef);
+                    variable.ValueRef = value;
+                }
             }
-            
-            variable.ValueRef = CalculatingTheExpression(stateInfo.expr, ref valueLocaleVariable, variable.type);
-          
-            
         }
         public static void _while(While stateWhile, ref AreaOfVisibility valueLocaleVariable)
         {
@@ -294,7 +334,7 @@ namespace Kompilyatory
             initValue.VariableRef = variable;
             blocks.Function.Peek().variable.Add(initValue.Id, initValue );
 
-            if (initValue.expr == null) initValue.expr = new List<string>();
+            if (initValue.expr.Count == 0) initValue.expr = new List<string>();
             else if (initValue.expr.Count == 1)
             {
                 if (initValue.expr[0][0] != '$')
@@ -320,53 +360,37 @@ namespace Kompilyatory
             }
 
         }
-        public static void Display(string outputString,in string typeOutputString, ref AreaOfVisibility valueLocaleVariable, string typeExpr = "int")
+        public static void Display(string outputString,in string typeOutputString, ref AreaOfVisibility valueLocaleVariable, ref List<LLVMValueRef> args ,string typeExpr = "int", Initialization variable = null)
         {
             LLVMValueRef formatString = default;
-            LLVMValueRef[] args = default;
 
             if (typeOutputString == "variable")
             {
-                Initialization variable;
-                variable = valueLocaleVariable.FindVariable(outputString);
-                if (variable == null) // Переменная не найдена
-                    WriteWrong($"Unknown variable \"{outputString}\" in display instruction");
-
-                // Переменная найдена
+                
                 if (variable.type == "float")
                 {
                     var doubleValue = LLVM.BuildFPExt(builder, variable.ValueRef,
                         LLVM.DoubleType(), "");
-                    formatString = LLVM.BuildGlobalStringPtr(builder, "%0.1f\n\0", $"Format_string");
-                    args = new LLVMValueRef[] { formatString, doubleValue };
-
+                    args.Add(doubleValue);
                 }
                 else
                 {
-                    formatString = LLVM.BuildGlobalStringPtr(builder, "%d\n\0", $"Format_string");
-                    args = new LLVMValueRef[] { formatString, LoadValue(variable.VariableRef) };
+                    args.Add(LoadValue(variable.VariableRef));
                 }
+            }
+            else if (typeOutputString == "expr")
+            {
+                args.Add(outputString.Contains('%') ? valueRefs.Pop() :  BuildValue(ref outputString, ref valueLocaleVariable,typeExpr));
             }
             else
             {
-                if (typeOutputString == "expr")
-                {
-                    if (typeExpr == "int")
-                        formatString = LLVM.BuildGlobalStringPtr(builder, "%d\n\0", $"Format_string");
-                    else
-                        formatString = LLVM.BuildGlobalStringPtr(builder, "%0.1f\n\0", $"Format_string");
-                    args = new LLVMValueRef[] { formatString, BuildValue(ref outputString, ref valueLocaleVariable,typeExpr) };
-                }
-                else
-                {
-                    formatString = LLVM.BuildGlobalStringPtr(builder, $"{outputString}\n",
-                        $"Writeln_value_{outputString}_string");
-                    args = new LLVMValueRef[] { formatString };
-                }
+                args.Add(LLVM.BuildGlobalStringPtr(builder, $"{outputString}",
+                    $"Writeln_value_{outputString}_string"));
+                // args = new LLVMValueRef[] { formatString };
             }
 
-            var getPuts = LLVM.GetNamedFunction(module, "printf");
-            LLVM.BuildCall(builder, getPuts, args, $"");
+            // var getPuts = LLVM.GetNamedFunction(module, "printf");
+            // LLVM.BuildCall(builder, getPuts, args, $"");
         }
         private static LLVMValueRef LoadValue(LLVMValueRef val)
         {

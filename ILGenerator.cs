@@ -5,6 +5,8 @@ using LLVMSharp;
 using System.Collections.Generic;
 using System.Linq;
 using System.Globalization;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace Kompilyatory
 {
@@ -32,6 +34,7 @@ namespace Kompilyatory
             public LLVMBasicBlockRef block { get; set; }
             public Dictionary<string, Initialization> variable;
         }
+
         public static void Gen()
         {
             LLVM.InitializeX86TargetInfo();
@@ -44,12 +47,33 @@ namespace Kompilyatory
                 new LLVMTypeRef[] { LLVMTypeRef.PointerType(LLVMTypeRef.Int8Type(), 0), }, true);
             LLVM.AddFunction(module, "printf", retType);
 
-            foreach (var item in Ast)
+            foreach (var function in Ast)
             {
-                if (item.State.Function == null) break;
-                else Instructions.BuildFunction(item.State.Function);
+                if (function.State.Function == null) break;
+                else
+                {
+                    foreach (var callFunction in Ast)
+                    {
+                        if (callFunction.State.CallFunction != null)
+                        {
+                            if (callFunction.State.CallFunction.ID == function.State.Function.ID && function.State.Function.type == "void")
+                            {
+                                Instructions.BuildFunction(function.State.Function);
+                                break;
+                            }
+                        }
+                        else if (callFunction.State.Initialization != null)
+                        {
+                            if (callFunction.State.Initialization.func.ID == function.State.Function.ID)
+                            {
+                                Instructions.BuildFunction(function.State.Function);
+                                break;
+                            }
+                        }
+                    }
+                }
             }
-            
+
             var functionType = LLVM.FunctionType(LLVM.VoidType(), new LLVMTypeRef[] { }, new LLVMBool(0));
             var mainFunction = LLVM.AddFunction(module, "main", functionType);
             var entry = LLVM.AppendBasicBlock(mainFunction, "main");
@@ -113,11 +137,11 @@ namespace Kompilyatory
             LLVMValueRef value = default(LLVMValueRef);
             if (initValue[0] == '$')
             {
-                foreach (var block in areaOfVisibility.Function)
-                {
-                    if (block.variable.TryGetValue(initValue.Substring(1), out Initialization variableValue)) return variableValue.ValueRef;
-                }
-                WriteWrong($"Unknown variable \"{initValue.Substring(1)}\"");
+                var variable = areaOfVisibility.FindVariable(initValue.Substring(1));
+                if (variable == null)
+                    WriteWrong($"Unknown variable \"{initValue.Substring(1)}\"");
+                else
+                    return variable.ValueRef;
             }
 
             if (type == "int")
@@ -151,16 +175,22 @@ namespace Kompilyatory
             return value;
         }
         public static LLVMValueRef _BuildEquation(List<string> left, List<string> right, string op,
-            ref AreaOfVisibility _valueLocaleVariable)
+            ref AreaOfVisibility valueLocaleVariable)
         {
             var insertBlock = LLVM.GetInsertBlock(builder);
             LLVMValueRef leftVariable = default(LLVMValueRef);
             LLVMValueRef rightVariable = default(LLVMValueRef);
+
+            leftVariable = CalculatingTheExpression(left, ref valueLocaleVariable, "float");
+            rightVariable = CalculatingTheExpression(right, ref valueLocaleVariable, "float");
+            leftVariable = LLVM.BuildSIToFP(builder, leftVariable ,LLVM.FloatType(), "LeftValueInCompare");
+            rightVariable = LLVM.BuildSIToFP(builder, rightVariable, LLVM.FloatType(), "RightValueInCompare");
             
+            /*
             if (left[0][0] == '$')
             {
                 left[0] = left[0].Trim('$');
-                var variable = _valueLocaleVariable.FindVariable(left[0]);
+                var variable = valueLocaleVariable.FindVariable(left[0]);
                 if (variable != null)
                 {
                     leftVariable = LLVM.BuildLoad(builder, variable.VariableRef, "");
@@ -174,18 +204,18 @@ namespace Kompilyatory
                 if (left.Count == 1)
                 {
                     string LeftValue = left[0];
-                    leftVariable = BuildValue(ref LeftValue,ref _valueLocaleVariable, "float");
+                    leftVariable = BuildValue(ref LeftValue,ref valueLocaleVariable, "float");
                 }
                 else
                 {
-                    leftVariable = CalculatingTheExpression(left, ref _valueLocaleVariable, "float");
+                    leftVariable = CalculatingTheExpression(left, ref valueLocaleVariable, "float");
                 }
             }
             
             if (right[0][0] == '$')
             {
                 right[0] = right[0].Trim('$');
-                var variable = _valueLocaleVariable.FindVariable(right[0]);
+                var variable = valueLocaleVariable.FindVariable(right[0]);
                 if (variable != null)
                 {
                     rightVariable = LLVM.BuildLoad(builder, variable.VariableRef, "");
@@ -201,13 +231,14 @@ namespace Kompilyatory
                 if (right.Count == 1)
                 {
                     string LeftValue = right[0];
-                    rightVariable = BuildValue(ref LeftValue,ref _valueLocaleVariable, "float");
+                    rightVariable = BuildValue(ref LeftValue,ref valueLocaleVariable, "float");
                 }
                 else
                 {
-                    rightVariable = CalculatingTheExpression(right, ref _valueLocaleVariable, "float");
+                    rightVariable = CalculatingTheExpression(right, ref valueLocaleVariable, "float");
                 }
             }
+            */
 
             LLVMValueRef compare = default(LLVMValueRef);
             switch (op)
@@ -232,27 +263,36 @@ namespace Kompilyatory
 
             return compare;
         }
-        public static LLVMValueRef CalculatingTheExpression(List<string> inputVarialbe, ref AreaOfVisibility _valueLocaleVariable, string type = "int")
+        public static Stack<LLVMValueRef> valueRefs = new Stack<LLVMValueRef>();
+        public static LLVMValueRef CalculatingTheExpression(List<string> inputVarialbe, ref AreaOfVisibility valueLocaleVariable, string type = "int")
         {
             if (inputVarialbe.Count == 0)
-                WriteWrong($"An uninitialized variable was used");
-            
+                WriteWrong($"An uninitialized variable was used:");
+
             if (inputVarialbe.Count == 1)
             {
-                var variable = _valueLocaleVariable.FindVariable(inputVarialbe[0].Substring(1));
-                if (variable == null) WriteWrong($"Unknown variable: {inputVarialbe[0]}");
-                
-                if (inputVarialbe[0][0] == '$') return variable.ValueRef;
-
-                string value = variable.expr[0];
-                return BuildValue(ref value,ref _valueLocaleVariable);
+                if (inputVarialbe[0][0] == '$')
+                {
+                    var variable = valueLocaleVariable.FindVariable(inputVarialbe[0].Substring(1));
+                    if (variable == null) WriteWrong($"Unknown variable: {inputVarialbe[0]}");
+                    else if (variable.ValueRef.Pointer == IntPtr.Zero)
+                        WriteWrong($"An uninitialized variable was used: {variable.Id}");
+                    else return LLVM.BuildLoad(builder, variable.VariableRef, "");
+                }
+                else
+                {
+                    string value = inputVarialbe[0];
+                    return BuildValue(ref value, ref valueLocaleVariable);
+                }
             }
 
             string right;
             string left;
             string op;
-            
-            while (inputVarialbe.Count > 3)
+            LLVMValueRef l;
+            LLVMValueRef r;
+
+            while (inputVarialbe.Count > 1)
             {
                 int k = 0;
                 for (;; k++)
@@ -267,26 +307,46 @@ namespace Kompilyatory
                 op = inputVarialbe[k - 0];
 
                 inputVarialbe.RemoveRange(k - 2, 3);
-                string valueName = BuildExpr(BuildValue(ref left,ref _valueLocaleVariable, type), BuildValue(ref right, ref _valueLocaleVariable, type), op, type, ref _valueLocaleVariable).GetValueName();
-                valueName = GetValue(valueName);
-                inputVarialbe.Insert(k - 2, valueName);
+                if (left[0] == '$')
+                {
+                    var variable = valueLocaleVariable.FindVariable(left.Substring(1));
+                    if (variable == null) WriteWrong($"Unknown variable: {left.Substring(1)}");
+                    else if (variable.ValueRef.Pointer == IntPtr.Zero) WriteWrong($"An uninitialized variable was used");
+                    l = LLVM.BuildLoad(builder,variable.VariableRef , "");
+                }
+                else if (left.Contains('%'))
+                    l = valueRefs.Pop();
+                else
+                {
+                    left = GetValue(left);
+                    l = BuildValue(ref left, ref valueLocaleVariable, type);
+                }    
+                if (right[0] == '$')
+                {    
+                    var variable = valueLocaleVariable.FindVariable(right.Substring(1));
+                    if (variable == null) WriteWrong($"Unknown variable: {right.Substring(1)}");
+                    else if (variable.ValueRef.Pointer == IntPtr.Zero) WriteWrong($"An uninitialized variable was used");
+                    r = LLVM.BuildLoad(builder, variable.VariableRef, "");
+                }
+                else if (right.Contains('%'))
+                    r = valueRefs.Pop();
+                else
+                {
+                    right = GetValue(right);
+                    r = BuildValue(ref right, ref valueLocaleVariable, type);
+                }                
+                valueRefs.Push(BuildExpr(l, r, op, type, ref valueLocaleVariable));
+                inputVarialbe.Insert(k - 2, valueRefs.Peek().GetValueName());
             }
             
-            right = inputVarialbe[0];
-            left = inputVarialbe[1];
-            op = inputVarialbe[2];
-            
-            return BuildExpr(BuildValue(ref left,ref _valueLocaleVariable,type),BuildValue(ref right,ref _valueLocaleVariable,type), op, type , ref _valueLocaleVariable);
+            return valueRefs.Peek();
         }
         public static LLVMValueRef BuildExpr(LLVMValueRef op1, LLVMValueRef op2, string op, string type, ref AreaOfVisibility areaOfVisibility)
         {
             if (op1.TypeOf().ToString() != op2.TypeOf().ToString())
             {
-                string TempValue = GetValue(op1.GetValueName());
-                op1 = BuildValue(ref TempValue,ref areaOfVisibility,type);
-                
-                TempValue = GetValue(op2.GetValueName());
-                op2 = BuildValue(ref TempValue,ref areaOfVisibility,type);
+                op1 = LLVM.BuildSIToFP(builder, op1 ,LLVM.FloatType(), "");
+                op2 = LLVM.BuildSIToFP(builder, op2 ,LLVM.FloatType(), "");
             }
             
             switch (op)
@@ -314,9 +374,15 @@ namespace Kompilyatory
                 default:
                     throw new ArgumentException("Invalid operator: " + op);
             }
+            
         }
         public static string GetValue(string valueName)
         {
+            if (valueName.Contains('%'))
+            {
+                string[] parts = valueName.Split('='); 
+                return parts[0].Trim();
+            }
             int lastIndex = valueName.LastIndexOf(' ');
             if (lastIndex >= 0)
             {

@@ -272,6 +272,9 @@ namespace Kompilyatory
                                 {
                                     {
                                         "Arguments" , new List<object>()
+                                    },
+                                    {
+                                        "ln", context.PRINT().GetText() == "write" ? false : true
                                     }
                                 }
                             }
@@ -333,7 +336,6 @@ namespace Kompilyatory
             }
             if (item.print_arguments().Length > 0) PrintBody(item.print_arguments()[0], ref argc);
         }
-
         private void BodyExpr(ref Stack<string> expr, [NotNull] ExprParser.ExprContext context)
         {
             _exprStack = new Stack<string>();
