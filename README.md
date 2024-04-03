@@ -51,3 +51,35 @@ float b = 3.14; // Объявление переменной типа float с �
 $a = 10;
 $b = 2.5;
 ```
+
+## Примеры кода
+Этот пример кода демонстрирует две функции: fibonachiNumber, которая вычисляет числа Фибоначчи, и PrintFibonachi, которая выводит числа Фибоначчи до заданного числа.
+```
+def fibonachiNumber(int x) -> int
+begin
+    if ($x <= 1) then
+    begin
+        return $x;
+    end
+    else
+    begin
+        int a = fibonachiNumber($x - 1);
+        int b = fibonachiNumber($x - 2);
+        return $a + $b;
+    end;
+end.
+
+def PrintFibonachi(int N) -> void
+begin
+    for (int i = 0; $i < $N + 1; $i = $i + 1)
+    begin
+        int fibNum = fibonachiNumber($i);
+        writeln("Number ", $i + 1," in the Fibonacci sequence:", $fibNum);
+    end;
+end.
+
+def Main 
+begin 
+    PrintFibonachi(10);
+end.
+```
