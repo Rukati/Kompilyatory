@@ -17,6 +17,23 @@ using LLVMSharp;
 
 namespace Kompilyatory
 {
+    using System;
+    using Antlr4.Runtime;
+
+    public class CustomErrorListener<Symbol> : ConsoleErrorListener<Symbol>
+    {
+        public override void SyntaxError(
+            IRecognizer recognizer,
+            Symbol offendingSymbol,
+            int line,
+            int charPositionInLine,
+            string msg,
+            RecognitionException e)
+        {
+            // Переопределение метода SyntaxError
+            Console.WriteLine("line " + line + ":" + charPositionInLine + " " + msg);
+        }
+    }
     public class Program
     {
         static public List<Dictionary<string, Dictionary<string, Dictionary<string, object>>>> InitNode = new List<Dictionary<string, Dictionary<string, Dictionary<string, object>>>>();
@@ -29,15 +46,21 @@ namespace Kompilyatory
             ExprLexer lexer = new ExprLexer(antlrInputStream);
 
             CommonTokenStream commonToken = new CommonTokenStream(lexer);
-
-            ExprParser parser = new ExprParser(commonToken);
             
-            IParseTree tree = parser.prog();
+            ExprParser parser = new ExprParser(commonToken);
+            CustomErrorListener<IToken> customErrorListener = new CustomErrorListener<IToken>();
 
+            // Добавляем пользовательский ErrorListener в парсер
+            parser.RemoveErrorListeners(); // Удаляем все предыдущие ErrorListener'ы
+            parser.AddErrorListener(customErrorListener); // Добавляем пользовательский ErrorListener
+
+            IParseTree tree = parser.prog();
+            
             MyVisitor visitor = new MyVisitor();
+            
             if (parser.NumberOfSyntaxErrors == 0)
             {
-                WriteCorect("Lexer and Parser completed successfully");
+                //WriteCorect("Lexer and Parser completed successfully");
 
                 visitor.Visit(tree);
 
@@ -49,15 +72,15 @@ namespace Kompilyatory
 
                 LL.Gen();
             }
-
         }
         public class AST
         {
-            [JsonProperty("state")]
-            public State State { get; set; }
+            [JsonProperty("state")] public State State { get; set; } 
+            [JsonProperty("return")] public List<List<string>> Return { get; set; } 
             public void HandlingStatus(ref LL.AreaOfVisibility local)
             {
-                if (State.Initialization != null)
+                if (Return != null) Instructions.BuildReturnBody(Return,ref local);
+                else if  (State.Initialization != null)
                 {
                     var variable = State.Initialization;
                     Instructions.Initialization(ref variable, ref local);
@@ -152,12 +175,12 @@ namespace Kompilyatory
             public List<Initialization> args { get; set; }
             public string type { get; set; }
             public List<AST> body { get; set; }
-            [JsonProperty("return")] public List<string> Return { get; set; }
+            [JsonProperty("return")] public List<List<string>> Return { get; set; }
         }
         public class CallFunction
         {
             public string ID { get; set; }
-            public List<string> argc { get; set; }
+            public List<List<string>> argc { get; set; }
         }
         public class State
         {
@@ -198,7 +221,13 @@ namespace Kompilyatory
             public List<string> right { get; set; }
             [JsonProperty("operator")] public string Operator { get; set; }
             public List<AST> body { get; set; }
-            [JsonProperty("else")] public Dictionary<string,List<AST>> Else { get; set; }
+            [JsonProperty("else")] public Else _else { get; set; }
+
+            public class Else
+            {
+                public List<AST> body { get; set; }
+                [JsonProperty("return")]public List<List<string>> Return;
+            }
         }
         public class Write
         {

@@ -38,13 +38,19 @@ namespace Kompilyatory
                     body.Add(BodyDoWhile(item.doWhile()));
             }
         }
-        private void BuildArgcCallFunc(ref List<string> args, [NotNull] ExprParser.ArgcContext[] contexts)
+        private void BuildArgcCallFunc(ref List<object> args, [NotNull] ExprParser.ArgcContext[] contexts)
         {
             if (contexts != null)
             {
                 foreach (var VARIABLE in contexts)
                 {
-                    args.Add(VARIABLE.arguments().GetText());
+                    if (VARIABLE.arguments().expr() != null)
+                    {
+                        Stack<string> argg = new Stack<string>();
+                        BodyExpr(ref argg, VARIABLE.arguments().expr());
+                        args.Add(argg);
+                    }
+                    else args.Add(new List<string>(){VARIABLE.arguments().GetText()});
                     if (VARIABLE.argc() != null) BuildArgcCallFunc(ref args, VARIABLE.argc());
                 }
             }
@@ -52,7 +58,7 @@ namespace Kompilyatory
         }
         private object CallFunc([NotNull] ExprParser.CallFuncContext context, bool node = false)
         {
-            List<string> args = new List<string>();
+            List<object> args = new List<object>();
             BuildArgcCallFunc(ref args, context.argc());
             var stateCallFunc = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
                 { "state",
@@ -114,8 +120,26 @@ namespace Kompilyatory
             Stack<string> rightExpr = new Stack<string>();
 
             BuildBody(ref ifBody, context.ifBody().stat());
+            if (context.ifBody().@return() != null)
+                ifBody.Add(new Dictionary<string,object>()
+                {
+                    {
+                        "return", new List<object>(){ReturnBody(context.ifBody().@return())}
+                    }                    
+                });
             if (context.elseBody() != null)
+            {
                 BuildBody(ref elseBody, context.elseBody().stat());
+                if (context.elseBody().@return() != null)
+                {
+                    elseBody.Add(new Dictionary<string,object>()
+                    {
+                        {
+                            "return", ReturnBody(context.elseBody().@return())
+                        }                    
+                    });
+                }
+            }
 
             BodyExpr(ref leftExpr, context.equation().expr()[0]);
             BodyExpr(ref rightExpr, context.equation().expr()[1]);
@@ -135,9 +159,9 @@ namespace Kompilyatory
                                     { "else",
                                         new Dictionary<string,object>()
                                         {
-                                            { "body", elseBody}
+                                            { "body", elseBody},
                                         }
-                                    }
+                                    },
                                 }
                             },
                         }
@@ -148,28 +172,33 @@ namespace Kompilyatory
             else return stateIfElse;
             return null;
         }
+        private object ReturnBody([NotNull] ExprParser.ReturnContext item)
+        {
+            List<object> bodyReturn = new List<object>();
+            Stack<string> returnStack = new Stack<string>();
+
+            if (item != null)
+            {
+                if (item.expr() != null)
+                {
+                    BodyExpr(ref returnStack, item.expr());
+                    bodyReturn.Add(returnStack);
+                }
+                else
+                {
+                    bodyReturn.Add(item.GetText());
+                }
+            }
+
+            return bodyReturn;
+        }
         private void BuildFunction([NotNull] ExprParser.FunctionContext[] context)
         {
             foreach (var item in context)
             {
                 List<object> body = new List<object>();
                 BuildBody(ref body,item.stat());
-                Stack<string> returnStack = new Stack<string>();
-                List<string> bodyReturn = new List<string>();
-
-                if (item.@return() != null)
-                {
-                    if (item.@return().expr() != null)
-                    {
-                        BodyExpr(ref returnStack, item.@return().expr());
-                        bodyReturn = returnStack.ToList();
-                    }
-                    else
-                    {
-                        bodyReturn.Add(item.@return().GetText());
-                    }
-                }
-
+                
                 List<Dictionary<string, string>> argc = new List<Dictionary<string, string>>();
                 FuncArgc(item.parameter(), ref argc);
                 var stateFunction = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>()
@@ -186,7 +215,7 @@ namespace Kompilyatory
                                     { "args", item.parameter() != null? argc : null},
                                     { "type", item.funType().GetText()},
                                     { "body", body},
-                                    { "return", bodyReturn},
+                                    { "return", ReturnBody(item.@return())},
                                 }
                             }
                         }
@@ -200,10 +229,13 @@ namespace Kompilyatory
             var name = context.ID() == null ? "" : context.ID().GetText();
             var type = context.TYPE() == null ? "" : context.TYPE().GetText();
 
-            _exprStack = new Stack<string>();
+            Stack<string> exprBody = new Stack<string>();
+            if (context.expr() != null)
+            {
+                BodyExpr(ref exprBody, context.expr());
+            }
 
-            this.VisitChildren(context);
-            List<string> args = new List<string>();
+            List<object> args = new List<object>();
             BuildArgcCallFunc(ref args, context.callFunc()?.argc());
             var stateInit = new Dictionary<string, Dictionary<string, Dictionary<string, object>>>(){
                     { "state",
@@ -215,7 +247,7 @@ namespace Kompilyatory
                                 {
                                     {"type", type},
                                     {"ID", name},
-                                    {"expr", _exprStack },
+                                    {"expr", exprBody },
                                     {
                                         "func", new Dictionary<string,object>()
                                         {
@@ -251,6 +283,7 @@ namespace Kompilyatory
             }
             else
             {
+                if (context.ChildCount > 0)
                 argc.Add(
                     new Dictionary<string, string>()
                     {

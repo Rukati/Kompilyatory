@@ -7,6 +7,7 @@ using System.Linq;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace Kompilyatory
 {
@@ -35,6 +36,65 @@ namespace Kompilyatory
             public Dictionary<string, Initialization> variable;
         }
 
+        static private AST tempASt = new AST();
+        static private List<AST> tempListAst = new List<AST>();
+        private static void buildFunctionAst(List<AST> ast)
+        {
+            foreach (var function in ast)
+            {
+                if (function.Return != null) continue;
+                if (function.State != null)
+                {
+                    if (function.State.Function != null)
+                    tempASt = function;
+                } 
+                foreach (var callFunction in ast)
+                {
+                    if (callFunction.Return != null) continue;
+                    if (tempListAst.Contains(callFunction)) continue;
+                    if (callFunction.State.CallFunction != null)
+                    {
+                        if (callFunction.State.CallFunction.ID == tempASt.State.Function.ID &&
+                            tempASt.State.Function.type == "void")
+                        {
+                            if (callFunction.State.CallFunction.argc.Count != tempASt.State.Function.args.Count)
+                                WriteWrong(
+                                    $"There are not enough arguments to call the function {tempASt.State.Function.ID}");
+                            Instructions.BuildFunction(tempASt.State.Function);
+                            tempListAst.Add(callFunction);
+                            break;
+                        }
+                    }
+                    else if (callFunction.State.Initialization != null)
+                    {
+                        if (callFunction.State.Initialization.func.ID == tempASt.State.Function.ID)
+                        {
+                            Instructions.BuildFunction(tempASt.State.Function);
+                            tempListAst.Add(callFunction);
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        if (callFunction.State.FOR != null)
+                            buildFunctionAst(callFunction.State.FOR.body);
+                        else if (callFunction.State.whilE != null)
+                            buildFunctionAst(callFunction.State.whilE.body);
+                        else if (callFunction.State.doWhile != null)
+                            buildFunctionAst(callFunction.State.doWhile.body);
+                        else if (callFunction.State.iF != null)
+                        {
+                            if (callFunction.State.iF._else != null)
+                                buildFunctionAst(callFunction.State.iF._else.body);
+                            buildFunctionAst(callFunction.State.iF.body);
+                        }
+                        else if (callFunction.State.Function != null && callFunction != function)
+                            buildFunctionAst(callFunction.State.Function.body);
+                    }
+                
+                }
+            }
+        }
         public static void Gen()
         {
             LLVM.InitializeX86TargetInfo();
@@ -47,32 +107,7 @@ namespace Kompilyatory
                 new LLVMTypeRef[] { LLVMTypeRef.PointerType(LLVMTypeRef.Int8Type(), 0), }, true);
             LLVM.AddFunction(module, "printf", retType);
 
-            foreach (var function in Ast)
-            {
-                if (function.State.Function == null) break;
-                else
-                {
-                    foreach (var callFunction in Ast)
-                    {
-                        if (callFunction.State.CallFunction != null)
-                        {
-                            if (callFunction.State.CallFunction.ID == function.State.Function.ID && function.State.Function.type == "void")
-                            {
-                                Instructions.BuildFunction(function.State.Function);
-                                break;
-                            }
-                        }
-                        else if (callFunction.State.Initialization != null)
-                        {
-                            if (callFunction.State.Initialization.func.ID == function.State.Function.ID)
-                            {
-                                Instructions.BuildFunction(function.State.Function);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
+            buildFunctionAst(Ast.Where(item => item.State.Function != null || item.State.CallFunction != null).ToList());
 
             var functionType = LLVM.FunctionType(LLVM.VoidType(), new LLVMTypeRef[] { }, new LLVMBool(0));
             var mainFunction = LLVM.AddFunction(module, "main", functionType);
@@ -101,6 +136,27 @@ namespace Kompilyatory
             LLVM.DisposeBuilder(builder);
             LLVM.DisposeModule(module);
             LLVM.ContextDispose(context);
+            
+            string command = "clang output.ll -o output.exe & output.exe";
+
+            // Создаем новый процесс для выполнения команды
+            Process process = new Process();
+            process.StartInfo.FileName = "cmd.exe"; // Используем командную оболочку cmd
+            process.StartInfo.Arguments = $"/c {command}"; // /c используется для выполнения команды и выхода
+            process.StartInfo.UseShellExecute = false; // Устанавливаем false, чтобы не открывать окно командной строки
+            process.StartInfo.RedirectStandardOutput = true; // Необходимо установить true, чтобы получить вывод команды
+
+            // Запускаем процесс
+            process.Start();
+
+            // Получаем результат выполнения команды
+            string result = process.StandardOutput.ReadToEnd();
+
+            // Ожидаем завершения процесса
+            process.WaitForExit();
+
+            // Выводим результат выполнения команды
+            Console.WriteLine(result);
         }
         public static LLVMValueRef BuildVariable(ref Initialization initValue)
         {
@@ -185,61 +241,7 @@ namespace Kompilyatory
             rightVariable = CalculatingTheExpression(right, ref valueLocaleVariable, "float");
             leftVariable = LLVM.BuildSIToFP(builder, leftVariable ,LLVM.FloatType(), "LeftValueInCompare");
             rightVariable = LLVM.BuildSIToFP(builder, rightVariable, LLVM.FloatType(), "RightValueInCompare");
-            
-            /*
-            if (left[0][0] == '$')
-            {
-                left[0] = left[0].Trim('$');
-                var variable = valueLocaleVariable.FindVariable(left[0]);
-                if (variable != null)
-                {
-                    leftVariable = LLVM.BuildLoad(builder, variable.VariableRef, "");
-                    leftVariable = LLVM.BuildSIToFP(builder, leftVariable ,LLVM.FloatType(), "LeftValueInCompare");
-                }
-                else
-                    WriteWrong($"Unknown variable: {left[0]}");
-            }
-            else
-            {
-                if (left.Count == 1)
-                {
-                    string LeftValue = left[0];
-                    leftVariable = BuildValue(ref LeftValue,ref valueLocaleVariable, "float");
-                }
-                else
-                {
-                    leftVariable = CalculatingTheExpression(left, ref valueLocaleVariable, "float");
-                }
-            }
-            
-            if (right[0][0] == '$')
-            {
-                right[0] = right[0].Trim('$');
-                var variable = valueLocaleVariable.FindVariable(right[0]);
-                if (variable != null)
-                {
-                    rightVariable = LLVM.BuildLoad(builder, variable.VariableRef, "");
-                    rightVariable =
-                        LLVM.BuildSIToFP(builder, rightVariable, LLVM.FloatType(), "LeftValueInCompare");
-                }
-                else 
-                    WriteWrong($"Unknown variable: {right[0]}");
-
-            }
-            else
-            {
-                if (right.Count == 1)
-                {
-                    string LeftValue = right[0];
-                    rightVariable = BuildValue(ref LeftValue,ref valueLocaleVariable, "float");
-                }
-                else
-                {
-                    rightVariable = CalculatingTheExpression(right, ref valueLocaleVariable, "float");
-                }
-            }
-            */
-
+     
             LLVMValueRef compare = default(LLVMValueRef);
             switch (op)
             {
@@ -258,6 +260,14 @@ namespace Kompilyatory
                 case ">":
                     compare = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGT, leftVariable, rightVariable,
                         "compare_gt");
+                    break;
+                case "<=":
+                    compare = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOLE, leftVariable, rightVariable,
+                        "compare_le");
+                    break;
+                case ">=":
+                    compare = LLVM.BuildFCmp(builder, LLVMRealPredicate.LLVMRealOGE, leftVariable, rightVariable,
+                        "compare_ge");
                     break;
             }
 

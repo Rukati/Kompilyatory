@@ -22,19 +22,35 @@ namespace Kompilyatory
             
             foreach (var argument in function.argc)
             {
-                if (argument[0] == '$')
+                string ArgumentOne = argument[0];
+                if (argument.Count > 1)
                 {
-                    var block = local.FindVariable(argument.Substring(1));
-                    if (block == null) WriteWrong($"Unknown variable: {argument.Substring(1)}");
-                    args[index] = block.ValueRef;
+                    var value = CalculatingTheExpression(argument, ref local, getPuts.GetParam((uint)index).TypeOf().ToString() == "i32" ? "int" : "float");
+                    if (value.GetType() == getPuts.GetParam((uint)index).GetType())
+                        args[index] = value;
+                    else WriteWrong($"Argument {ArgumentOne} does not match data type");
                 }
                 else
                 {
-                    LLVMValueRef functionValue = LLVM.GetNamedFunction(module, function.ID);
-                    LLVMTypeRef functionType = LLVM.TypeOf(functionValue);
-                    string str = argument;
-                    args[index] = BuildValue(ref str, ref local);
+                    if (argument[0][0] == '$')
+                    {
+                        var block = local.FindVariable(argument[0].Substring(1));
+                        if (block == null) WriteWrong($"Unknown variable: {argument[0].Substring(1)}");
+                        var valueLoad = LLVM.BuildLoad(builder, block.VariableRef, "");
+                        args[index] = valueLoad;
+                    }
+                    else
+                    {
+                        LLVMValueRef functionValue = LLVM.GetNamedFunction(module, function.ID);
+                        LLVMTypeRef functionType = LLVM.TypeOf(functionValue);
+                        var value = BuildValue(ref ArgumentOne, ref local, ArgumentOne.Contains('.') ? "float" : "int");
+                        if (value.GetType() == getPuts.GetParam((uint)index).GetType())
+                            args[index] = value;
+                        else WriteWrong($"Argument {ArgumentOne} does not match data type");
+                    }
                 }
+
+
                 index++;
             }
 
@@ -93,32 +109,45 @@ namespace Kompilyatory
                 if (function.type == "void")
                     WriteWrong(
                         $"Function \"{function.ID}\" can't return a value because it has a type \"{function.type}\"");
-                if (function.Return.Count == 1)
-                {
-                    if (function.Return[0][0] == '$')
-                    {
-                        Initialization variableReturn = Area.FindVariable(function.Return[0].Substring(1));
-                        if (variableReturn.type != function.type)
-                            WriteWrong(
-                                $"The data type of the return variable ({variableReturn.type}) must match the return type of the function ({function.type})");
+                else
+                    BuildReturnBody(function.Return, ref Area);
+            }
+            else if (function.type == "void")
+            {
+                LLVM.BuildRetVoid(builder); 
+            }
+            else
+            {
+                string val = "1";
+                LLVM.BuildRet(builder, BuildValue(ref val, ref Area));
+            }
+            //WriteWrong($"Function return values do not match \"{function.ID}\"");
+            
+            LLVM.PositionBuilderAtEnd(builder, Block);
+        }
 
-                        LLVM.BuildRet(builder,variableReturn.ValueRef);
+        public static void BuildReturnBody(List<List<string>> function,ref AreaOfVisibility Area)
+        {
+            foreach (var ArgsFunction in function)
+            {
+                if (ArgsFunction.Count == 1)
+                {
+                    if (ArgsFunction[0][0] == '$')
+                    {
+                        Initialization variableReturn = Area.FindVariable(ArgsFunction[0].Substring(1));
+                        LLVM.BuildRet(builder, variableReturn.ValueRef);
                     }
                     else
                     {
-                        var ret = function.Return[0];
-                        LLVM.BuildRet(builder,BuildValue(ref ret, ref Area, function.type));
+                        var ret = ArgsFunction[0];
+                        LLVM.BuildRet(builder, BuildValue(ref ret, ref Area, "int"));
                     }
                 }
                 else
                 {
-                    LLVM.BuildRet(builder,CalculatingTheExpression(function.Return, ref Area, function.type));
+                    LLVM.BuildRet(builder, CalculatingTheExpression(function[0], ref Area, "int"));
                 }
             }
-            else if (function.type == "void") LLVM.BuildRetVoid(builder);
-            else WriteWrong($"Function return values do not match \"{function.ID}\"");
-            
-            LLVM.PositionBuilderAtEnd(builder, Block);
         }
         public static void ChangeValue(ChangeValue stateInfo,
             ref AreaOfVisibility valueLocaleVariable)
@@ -243,15 +272,16 @@ namespace Kompilyatory
             valueLocaleVariable.Function.Push(blockIf);
             foreach (AST astNode in stateIf.body) astNode.HandlingStatus(ref valueLocaleVariable);
             valueLocaleVariable.Function.Pop();
-            LLVM.BuildBr(builder, EndBlock);
+            if (!LLVM.GetLastInstruction(ifTrue).ToString().Contains("ret"))
+                LLVM.BuildBr(builder, EndBlock);
 
             // ELSE
             LLVM.PositionBuilderAtEnd(builder, ifFalse);
             Blocks blockElse = new Blocks() { block = ifFalse,variable = new Dictionary<string, Initialization>()}; valueLocaleVariable.Function.Push(blockElse);
-            foreach (AST astNode in stateIf.Else["body"]) astNode.HandlingStatus(ref valueLocaleVariable);
+            foreach (AST astNode in stateIf._else.body) astNode.HandlingStatus(ref valueLocaleVariable);
             valueLocaleVariable.Function.Pop();
-            LLVM.BuildBr(builder, EndBlock);
-
+            if (!LLVM.GetLastInstruction(ifFalse).ToString().Contains("ret"))
+                LLVM.BuildBr(builder, EndBlock);
             LLVM.PositionBuilderAtEnd(builder, EndBlock);
         }
         public static void _doWhile( DoWhile stateDoWhile,
@@ -320,7 +350,6 @@ namespace Kompilyatory
         }
         public static void Initialization(ref Initialization initValue, ref AreaOfVisibility blocks)
         {
-            var insertBlock = LLVM.GetInsertBlock(builder);
             
             if (blocks.FindVariable(initValue.Id) != null )
                 WriteWrong($"A variable named \"{initValue.Id}\" already exists");
