@@ -104,7 +104,7 @@ namespace Kompilyatory
 
             foreach (var item in function.body) item.HandlingStatus(ref Area);
 
-            if (function.Return.Count() > 0)
+            if (function.Return[0].Count() > 0)
             {
                 if (function.type == "void")
                     WriteWrong(
@@ -119,7 +119,7 @@ namespace Kompilyatory
             else
             {
                 string val = "1";
-                LLVM.BuildRet(builder, BuildValue(ref val, ref Area));
+                LLVM.BuildRet(builder, BuildValue(ref val, ref Area, function.type));
             }
             //WriteWrong($"Function return values do not match \"{function.ID}\"");
             
@@ -135,7 +135,7 @@ namespace Kompilyatory
                     if (ArgsFunction[0][0] == '$')
                     {
                         Initialization variableReturn = Area.FindVariable(ArgsFunction[0].Substring(1));
-                        LLVM.BuildRet(builder, variableReturn.ValueRef);
+                        LLVM.BuildRet(builder, LLVM.BuildLoad(builder,variableReturn.VariableRef,""));
                     }
                     else
                     {

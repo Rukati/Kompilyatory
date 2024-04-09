@@ -41,7 +41,7 @@ namespace Kompilyatory
         [Obsolete]
         static private void Main(string[] args)
         {
-            AntlrFileStream antlrInputStream = new AntlrFileStream("lang.txt",Encoding.UTF8) ;
+            AntlrFileStream antlrInputStream = new AntlrFileStream(args[0],Encoding.UTF8) ;
 
             ExprLexer lexer = new ExprLexer(antlrInputStream);
 
@@ -226,7 +226,6 @@ namespace Kompilyatory
             public class Else
             {
                 public List<AST> body { get; set; }
-                [JsonProperty("return")]public List<List<string>> Return;
             }
         }
         public class Write

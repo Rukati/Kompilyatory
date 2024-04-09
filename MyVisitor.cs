@@ -215,7 +215,7 @@ namespace Kompilyatory
                                     { "args", item.parameter() != null? argc : null},
                                     { "type", item.funType().GetText()},
                                     { "body", body},
-                                    { "return", ReturnBody(item.@return())},
+                                    { "return", new List<object>(){ReturnBody(item.@return())}},
                                 }
                             }
                         }

@@ -8,6 +8,8 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
+
 
 namespace Kompilyatory
 {
@@ -21,15 +23,18 @@ namespace Kompilyatory
         public class AreaOfVisibility
         {
             public Stack<Blocks> Function = new Stack<Blocks>();
+
             public Initialization FindVariable(string name)
             {
                 foreach (var block in Function)
                 {
                     if (block.variable.TryGetValue(name, out Initialization value)) return value;
                 }
+
                 return null;
             }
         }
+
         public class Blocks
         {
             public LLVMBasicBlockRef block { get; set; }
@@ -38,16 +43,11 @@ namespace Kompilyatory
 
         static private AST tempASt = new AST();
         static private List<AST> tempListAst = new List<AST>();
+
         private static void buildFunctionAst(List<AST> ast)
         {
             foreach (var function in ast)
             {
-                if (function.Return != null) continue;
-                if (function.State != null)
-                {
-                    if (function.State.Function != null)
-                    tempASt = function;
-                } 
                 foreach (var callFunction in ast)
                 {
                     if (callFunction.Return != null) continue;
@@ -91,10 +91,11 @@ namespace Kompilyatory
                         else if (callFunction.State.Function != null && callFunction != function)
                             buildFunctionAst(callFunction.State.Function.body);
                     }
-                
+
                 }
             }
         }
+
         public static void Gen()
         {
             LLVM.InitializeX86TargetInfo();
@@ -107,25 +108,34 @@ namespace Kompilyatory
                 new LLVMTypeRef[] { LLVMTypeRef.PointerType(LLVMTypeRef.Int8Type(), 0), }, true);
             LLVM.AddFunction(module, "printf", retType);
 
-            buildFunctionAst(Ast.Where(item => item.State.Function != null || item.State.CallFunction != null).ToList());
+            foreach (var item in Ast)
+            {
+                if (item.State.Function == null) break;
+                Instructions.BuildFunction(item.State.Function);
+            }
+
+            // buildFunctionAst(Ast);
 
             var functionType = LLVM.FunctionType(LLVM.VoidType(), new LLVMTypeRef[] { }, new LLVMBool(0));
             var mainFunction = LLVM.AddFunction(module, "main", functionType);
             var entry = LLVM.AppendBasicBlock(mainFunction, "main");
             LLVM.PositionBuilderAtEnd(builder, entry);
-            
+
             AreaOfVisibility areaOfVisibility = new AreaOfVisibility();
-            areaOfVisibility.Function.Push(new Blocks(){block = entry, variable = new Dictionary<string, Initialization>()});
-            
+            areaOfVisibility.Function.Push(new Blocks()
+                { block = entry, variable = new Dictionary<string, Initialization>() });
+
             foreach (var item in Ast)
             {
                 if (item.State.Function != null) continue;
                 item.HandlingStatus(ref areaOfVisibility);
             }
-            
+
+            OptimazeFunc();
+
             // Ничего не возвращаем
             LLVM.BuildRetVoid(builder);
-            
+
             // Выводим модуль в консоль
             LLVM.DumpModule(module);
 
@@ -136,7 +146,7 @@ namespace Kompilyatory
             LLVM.DisposeBuilder(builder);
             LLVM.DisposeModule(module);
             LLVM.ContextDispose(context);
-            
+
             string command = "clang output.ll -o output.exe & output.exe";
 
             // Создаем новый процесс для выполнения команды
@@ -158,18 +168,21 @@ namespace Kompilyatory
             // Выводим результат выполнения команды
             Console.WriteLine(result);
         }
+
         public static LLVMValueRef BuildVariable(ref Initialization initValue)
         {
             LLVMTypeRef _lLVMType = GetTypeRef(initValue.type);
             return LLVM.BuildAlloca(builder, _lLVMType, initValue.Id);
         }
+
         public static void StoreValue(ref Initialization initValue, ref AreaOfVisibility areaOfVisibility)
         {
             string value = initValue.expr[0];
             var RefValue = BuildValue(ref value, ref areaOfVisibility, initValue.type);
-            LLVM.BuildStore(builder, RefValue , initValue.VariableRef);
+            LLVM.BuildStore(builder, RefValue, initValue.VariableRef);
             initValue.ValueRef = RefValue;
         }
+
         public static LLVMTypeRef GetTypeRef(string type)
         {
             switch (type)
@@ -187,7 +200,9 @@ namespace Kompilyatory
 
             return default(LLVMTypeRef);
         }
-        public static LLVMValueRef BuildValue(ref string initValue, ref AreaOfVisibility areaOfVisibility, string type = "int")
+
+        public static LLVMValueRef BuildValue(ref string initValue, ref AreaOfVisibility areaOfVisibility,
+            string type = "int")
         {
             LLVMTypeRef _lLVMType = GetTypeRef(type);
             LLVMValueRef value = default(LLVMValueRef);
@@ -206,7 +221,7 @@ namespace Kompilyatory
                 {
                     double floatingNumber = double.Parse(initValue.Substring(1), CultureInfo.InvariantCulture);
                     ulong uLongNumber = (ulong)floatingNumber;
-                    
+
                     var positiveValue = LLVM.ConstInt(_lLVMType, uLongNumber,
                         new LLVMBool(1));
 
@@ -217,19 +232,20 @@ namespace Kompilyatory
                 else
                 {
                     double floatingNumber = double.Parse(initValue, CultureInfo.InvariantCulture);
-                    ulong uLongNumber = (ulong)floatingNumber; 
-                    value = LLVM.ConstInt(_lLVMType, uLongNumber, new LLVMBool(0)); 
+                    ulong uLongNumber = (ulong)floatingNumber;
+                    value = LLVM.ConstInt(_lLVMType, uLongNumber, new LLVMBool(0));
                 }
             }
             else if (type == "float")
             {
                 value = LLVM.ConstReal(_lLVMType,
-                    double.Parse(initValue,CultureInfo.InvariantCulture));
+                    double.Parse(initValue, CultureInfo.InvariantCulture));
             }
             else WriteWrong($"The wrong data type was selected for the value variable");
 
             return value;
         }
+
         public static LLVMValueRef _BuildEquation(List<string> left, List<string> right, string op,
             ref AreaOfVisibility valueLocaleVariable)
         {
@@ -239,9 +255,9 @@ namespace Kompilyatory
 
             leftVariable = CalculatingTheExpression(left, ref valueLocaleVariable, "float");
             rightVariable = CalculatingTheExpression(right, ref valueLocaleVariable, "float");
-            leftVariable = LLVM.BuildSIToFP(builder, leftVariable ,LLVM.FloatType(), "LeftValueInCompare");
+            leftVariable = LLVM.BuildSIToFP(builder, leftVariable, LLVM.FloatType(), "LeftValueInCompare");
             rightVariable = LLVM.BuildSIToFP(builder, rightVariable, LLVM.FloatType(), "RightValueInCompare");
-     
+
             LLVMValueRef compare = default(LLVMValueRef);
             switch (op)
             {
@@ -273,8 +289,11 @@ namespace Kompilyatory
 
             return compare;
         }
+
         public static Stack<LLVMValueRef> valueRefs = new Stack<LLVMValueRef>();
-        public static LLVMValueRef CalculatingTheExpression(List<string> inputVarialbe, ref AreaOfVisibility valueLocaleVariable, string type = "int")
+
+        public static LLVMValueRef CalculatingTheExpression(List<string> inputVarialbe,
+            ref AreaOfVisibility valueLocaleVariable, string type = "int")
         {
             if (inputVarialbe.Count == 0)
                 WriteWrong($"An uninitialized variable was used:");
@@ -321,8 +340,9 @@ namespace Kompilyatory
                 {
                     var variable = valueLocaleVariable.FindVariable(left.Substring(1));
                     if (variable == null) WriteWrong($"Unknown variable: {left.Substring(1)}");
-                    else if (variable.ValueRef.Pointer == IntPtr.Zero) WriteWrong($"An uninitialized variable was used");
-                    l = LLVM.BuildLoad(builder,variable.VariableRef , "");
+                    else if (variable.ValueRef.Pointer == IntPtr.Zero)
+                        WriteWrong($"An uninitialized variable was used");
+                    l = LLVM.BuildLoad(builder, variable.VariableRef, "");
                 }
                 else if (left.Contains('%'))
                     l = valueRefs.Pop();
@@ -330,12 +350,14 @@ namespace Kompilyatory
                 {
                     left = GetValue(left);
                     l = BuildValue(ref left, ref valueLocaleVariable, type);
-                }    
+                }
+
                 if (right[0] == '$')
-                {    
+                {
                     var variable = valueLocaleVariable.FindVariable(right.Substring(1));
                     if (variable == null) WriteWrong($"Unknown variable: {right.Substring(1)}");
-                    else if (variable.ValueRef.Pointer == IntPtr.Zero) WriteWrong($"An uninitialized variable was used");
+                    else if (variable.ValueRef.Pointer == IntPtr.Zero)
+                        WriteWrong($"An uninitialized variable was used");
                     r = LLVM.BuildLoad(builder, variable.VariableRef, "");
                 }
                 else if (right.Contains('%'))
@@ -344,21 +366,24 @@ namespace Kompilyatory
                 {
                     right = GetValue(right);
                     r = BuildValue(ref right, ref valueLocaleVariable, type);
-                }                
+                }
+
                 valueRefs.Push(BuildExpr(l, r, op, type, ref valueLocaleVariable));
                 inputVarialbe.Insert(k - 2, valueRefs.Peek().GetValueName());
             }
-            
+
             return valueRefs.Peek();
         }
-        public static LLVMValueRef BuildExpr(LLVMValueRef op1, LLVMValueRef op2, string op, string type, ref AreaOfVisibility areaOfVisibility)
+
+        public static LLVMValueRef BuildExpr(LLVMValueRef op1, LLVMValueRef op2, string op, string type,
+            ref AreaOfVisibility areaOfVisibility)
         {
             if (op1.TypeOf().ToString() != op2.TypeOf().ToString())
             {
-                op1 = LLVM.BuildSIToFP(builder, op1 ,LLVM.FloatType(), "");
-                op2 = LLVM.BuildSIToFP(builder, op2 ,LLVM.FloatType(), "");
+                op1 = LLVM.BuildSIToFP(builder, op1, LLVM.FloatType(), "");
+                op2 = LLVM.BuildSIToFP(builder, op2, LLVM.FloatType(), "");
             }
-            
+
             switch (op)
             {
                 case "+":
@@ -384,15 +409,17 @@ namespace Kompilyatory
                 default:
                     throw new ArgumentException("Invalid operator: " + op);
             }
-            
+
         }
+
         public static string GetValue(string valueName)
         {
             if (valueName.Contains('%'))
             {
-                string[] parts = valueName.Split('='); 
+                string[] parts = valueName.Split('=');
                 return parts[0].Trim();
             }
+
             int lastIndex = valueName.LastIndexOf(' ');
             if (lastIndex >= 0)
             {
@@ -400,6 +427,103 @@ namespace Kompilyatory
             }
 
             return valueName;
+        }
+
+        HashSet<LLVMValueRef> visitedFunctions = new HashSet<LLVMValueRef>();
+
+        private static void OptimazeFunc()
+        {
+            // Создаем список для хранения функций
+            List<LLVMValueRef> functions = new List<LLVMValueRef>();
+
+            LLVMValueRef firstFunction = LLVM.GetFirstFunction(module);
+
+            LLVMValueRef currentFunction = firstFunction;
+            while (currentFunction.Pointer != IntPtr.Zero)
+            {
+                currentFunction = LLVM.GetNextFunction(currentFunction);
+                functions.Add(currentFunction);
+            }
+
+            functions.RemoveAt(functions.Count - 1);
+
+            string pattern = "(define (i32|void) ([^\"\"()]+)(.*){([^}]*)})";
+            Regex regex = new Regex(pattern);
+
+            string patternCall = "call (i32|void) ([^\"\"()]+)";
+            Regex regexCall = new Regex(patternCall);
+
+            Dictionary<string, List<string>> dict = new Dictionary<string, List<string>>();
+
+            foreach (var function in functions)
+            {
+                MatchCollection matches = regex.Matches(function.ToString());
+                foreach (Match match in matches)
+                {
+                    string funcBody = match.Groups[5].Value;
+                    string funcName = match.Groups[3].Value;
+                    List<string> calledFunctions = new List<string>();
+
+                    foreach (Match matchCall in regexCall.Matches(funcBody))
+                    {
+                        string nameCallFunc = matchCall.Groups[2].Value;
+                        calledFunctions.Add(nameCallFunc);
+                    }
+
+                    // Добавляем имя функции и список вызываемых функций в словарь
+                    dict.Add(funcName, calledFunctions);
+                }
+            }
+
+            BFS(dict, "@main");
+        }
+
+        private static void BFS(Dictionary<string, List<string>> graph, string startNode)
+        {
+            // Множество для отслеживания посещенных вершин
+            HashSet<string> visited = new HashSet<string>();
+
+            // Очередь для обхода вершин в ширину
+            Queue<string> queue = new Queue<string>();
+
+            // Начинаем с начальной вершины
+            queue.Enqueue(startNode);
+            visited.Add(startNode);
+
+            while (queue.Any())
+            {
+                // Извлекаем текущую вершину из очереди
+                string current = queue.Dequeue();
+
+                // Проверяем все смежные вершины
+                if (graph.ContainsKey(current))
+                {
+                    foreach (string neighbor in graph[current])
+                    {
+                        // Если смежная вершина не посещалась, добавляем ее в очередь и помечаем как посещенную
+                        if (!visited.Contains(neighbor))
+                        {
+                            queue.Enqueue(neighbor);
+                            visited.Add(neighbor);
+                        }
+                    }
+                }
+            }
+
+            foreach (var function in graph.Keys)
+            {
+                if (!visited.Contains(function))
+                {
+                    // Получаем функцию по ее имени
+                    LLVMValueRef functionRef = LLVM.GetNamedFunction(module, function.Substring(1));
+
+                    // Если функция существует, удаляем ее из модуля
+                    if (functionRef.Pointer != IntPtr.Zero)
+                    {
+                        LLVM.DeleteFunction(functionRef);
+                    }
+                }
+            }
         }
     }
 }
