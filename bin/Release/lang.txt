@@ -1,0 +1,5 @@
+def Main 
+begin 
+    int a = 5;
+    writeln($a);
+end.

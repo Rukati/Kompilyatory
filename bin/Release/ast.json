@@ -1,0 +1,29 @@
+[
+  {
+    "state": {
+      "initialization": {
+        "type": "int",
+        "ID": "a",
+        "expr": [
+          "5"
+        ],
+        "func": {
+          "ID": null,
+          "argc": []
+        }
+      }
+    }
+  },
+  {
+    "state": {
+      "writeln": {
+        "Arguments": [
+          {
+            "variable": "a"
+          }
+        ],
+        "ln": true
+      }
+    }
+  }
+]
