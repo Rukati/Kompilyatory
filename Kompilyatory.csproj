@@ -232,15 +232,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Antlr4 Include="bin\Debug\Expr.g4">
-      <Generator>MSBuild:Compile</Generator>
-      <CustomToolNamespace>Kompilyatory</CustomToolNamespace>
-      <Listener>True</Listener>
-      <Visitor>True</Visitor>
-    </Antlr4>
     <Compile Include="ILGenerator.cs" />
     <Compile Include="Instructions.cs" />
-    <None Include="bin\Debug\ast.json" />
     <None Include="bin\Release\Kompilyatory.exe.config" />
     <None Include="obj\Debug\ExprBaseListener.cs" />
     <None Include="obj\Debug\ExprBaseVisitor.cs" />
@@ -249,6 +242,13 @@
     <None Include="obj\Debug\ExprParser.cs" />
     <None Include="obj\Debug\ExprVisitor.cs" />
     <Compile Include="MyVisitor.cs" />
+    <Compile Include="obj\Release\.NETFramework,Version=v4.7.2.AssemblyAttributes.cs" />
+    <Compile Include="obj\Release\ExprBaseListener.cs" />
+    <Compile Include="obj\Release\ExprBaseVisitor.cs" />
+    <Compile Include="obj\Release\ExprLexer.cs" />
+    <Compile Include="obj\Release\ExprListener.cs" />
+    <Compile Include="obj\Release\ExprParser.cs" />
+    <Compile Include="obj\Release\ExprVisitor.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -261,8 +261,6 @@
     <Analyzer Include="packages\Microsoft.CodeAnalysis.Analyzers.3.3.4\analyzers\dotnet\cs\Microsoft.CodeAnalysis.CSharp.Analyzers.dll" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="bin\Debug\lang.txt" />
-    <Content Include="bin\Debug\output.ll" />
     <Content Include="bin\Release\amd64\KernelTraceControl.dll" />
     <Content Include="bin\Release\amd64\msdia140.dll" />
     <Content Include="bin\Release\Antlr4.Runtime.dll" />
@@ -271,6 +269,7 @@
     <Content Include="bin\Release\arm64\msdia140.dll" />
     <Content Include="bin\Release\ast.json" />
     <Content Include="bin\Release\Dia2Lib.dll" />
+    <Content Include="bin\Release\Expr.g4" />
     <Content Include="bin\Release\Kompilyatory.exe" />
     <Content Include="bin\Release\Kompilyatory.pdb" />
     <Content Include="bin\Release\lang.txt" />
@@ -311,6 +310,29 @@
     <Content Include="bin\Release\x86\KernelTraceControl.dll" />
     <Content Include="bin\Release\x86\KernelTraceControl.Win61.dll" />
     <Content Include="bin\Release\x86\msdia140.dll" />
+    <Content Include="obj\Release\Expr.g4" />
+    <Content Include="obj\Release\Expr.tokens" />
+    <Content Include="obj\Release\ExprLexer.tokens" />
+    <Content Include="obj\Release\Kompilyatory.csproj.Antlr4GeneratedCodeFileListAbsolute.txt" />
+    <Content Include="obj\Release\Kompilyatory.csproj.AssemblyReference.cache" />
+    <Content Include="obj\Release\Kompilyatory.csproj.CopyComplete" />
+    <Content Include="obj\Release\Kompilyatory.csproj.CoreCompileInputs.cache" />
+    <Content Include="obj\Release\Kompilyatory.csproj.FileListAbsolute.txt" />
+    <Content Include="obj\Release\Kompilyatory.exe" />
+    <Content Include="obj\Release\Kompilyatory.pdb" />
+  </ItemGroup>
+  <ItemGroup>
+    <Antlr4 Include="bin\Release\Expr.g4">
+      <Generator>MSBuild:Compile</Generator>
+      <CustomToolNamespace>Kompilyatory</CustomToolNamespace>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <Encoding>UTF-8</Encoding>
+      <TargetLanguage>CSharp</TargetLanguage>
+      <Listener>True</Listener>
+      <Visitor>True</Visitor>
+      <Abstract>false</Abstract>
+      <ForceAtn>false</ForceAtn>
+    </Antlr4>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

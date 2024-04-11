@@ -41,7 +41,7 @@ namespace Kompilyatory
         [Obsolete]
         static private void Main(string[] args)
         {
-            AntlrFileStream antlrInputStream = new AntlrFileStream(args[0],Encoding.UTF8) ;
+            AntlrFileStream antlrInputStream = new AntlrFileStream("lang.txt",Encoding.UTF8) ;
 
             ExprLexer lexer = new ExprLexer(antlrInputStream);
 
