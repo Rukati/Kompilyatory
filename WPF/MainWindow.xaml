@@ -1,0 +1,70 @@
+﻿<Window x:Class="WPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WPF"
+        mc:Ignorable="d"
+        Title="RPL" Height="500" Width="1000"
+        >
+    
+    <Grid Background="Transparent" MouseLeftButtonDown="UIElement_OnMouseLeftButtonDown">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="45"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="30"/>
+        </Grid.RowDefinitions>
+        <!-- Bar -->
+        <Grid Row="0" Background="Transparent" MouseLeftButtonDown="UIElement_OnMouseLeftButtonDown">
+            <Line x:Name="Line" Y1="45" Y2="45" Stroke="Black"/>
+            <TextBlock FontFamily="Rubik" FontSize="35" HorizontalAlignment="Center" Margin="0,10,0,0">
+                Rukaro
+            </TextBlock>
+        </Grid>
+        <!-- MainWindow -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="600"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <!-- Code User -->
+            <Grid Column="0" MouseLeftButtonDown="UIElement_OnMouseLeftButtonDown">
+                <TextBox x:Name="TextCode" FontSize="15"
+                         PreviewKeyDown="TextCode_OnPreviewKeyDown"
+                         FontFamily="Rubik" 
+                         AcceptsReturn="True" 
+                         TextWrapping="Wrap" 
+                         VerticalScrollBarVisibility="Auto"
+                >
+                </TextBox>
+            </Grid>
+            <!-- Code Result  -->
+            <Grid Column="1" MouseLeftButtonDown="UIElement_OnMouseLeftButtonDown">
+                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                    <TextBlock
+                        x:Name="TextResult"
+                        FontSize="15"
+                               TextWrapping="Wrap"
+                               FontFamily="Rubik">
+                    </TextBlock>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+        <!-- Start -->
+        <Grid Row="2" HorizontalAlignment="Center" VerticalAlignment="Bottom" Height="30" Width="70">
+            <Rectangle  x:Name="Run"
+                        Fill="DarkGreen" 
+                        RadiusX="10" 
+                        RadiusY="10"
+                        MouseLeftButtonDown="Run_OnMouseLeftButtonDown"/>
+            <TextBlock Text="RUN" 
+                       FontSize="20" 
+                       HorizontalAlignment="Center" 
+                       TextAlignment="Center" 
+                       VerticalAlignment="Center" 
+                       Foreground="White"
+                       IsHitTestVisible="False"
+                    />
+        </Grid>
+    </Grid>
+</Window>
