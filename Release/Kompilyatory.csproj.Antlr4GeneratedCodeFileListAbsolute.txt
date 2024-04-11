@@ -1,6 +1,0 @@
-Z:\C#\Kompilyatory\obj\Release\ExprLexer.cs
-Z:\C#\Kompilyatory\obj\Release\ExprParser.cs
-Z:\C#\Kompilyatory\obj\Release\ExprListener.cs
-Z:\C#\Kompilyatory\obj\Release\ExprBaseListener.cs
-Z:\C#\Kompilyatory\obj\Release\ExprVisitor.cs
-Z:\C#\Kompilyatory\obj\Release\ExprBaseVisitor.cs
