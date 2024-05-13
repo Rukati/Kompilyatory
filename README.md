@@ -113,11 +113,16 @@ end.
 
 def PrintFibonachi(int N) -> void
 begin
-    for (int i = 0; $i < $N + 1; $i = $i + 1)
+    for (int i = 0; $i < $N; $i = $i + 1)
     begin
         int fibNum = fibonachiNumber($i);
         writeln("Number ", $i + 1," in the Fibonacci sequence:", $fibNum);
     end;
+end.
+
+def Main
+begin
+    PrintFibonachi(5);
 end.
 ```
 
@@ -139,6 +144,7 @@ end.
 
 def Main 
 begin 
-    PrintFibonachi(10);
+    int res = factorial(5);
+    write($res);
 end.
 ```
