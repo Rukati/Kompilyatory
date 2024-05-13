@@ -99,9 +99,9 @@ end;
 ```
 def fibonachiNumber(int x) -> int
 begin
-    if ($x <= 1) then
+    if ($x <= 2) then
     begin
-        return $x;
+        return 1;
     end
     else
     begin
