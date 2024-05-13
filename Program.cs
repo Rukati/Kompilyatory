@@ -41,9 +41,9 @@ namespace Kompilyatory
         [Obsolete]
         static private void Main(string[] args)
         {
-            AntlrFileStream antlrInputStream = new AntlrFileStream("lang.txt",Encoding.UTF8) ;
+            AntlrFileStream antlrFileStream = new AntlrFileStream("lang.txt",Encoding.UTF8) ;
 
-            ExprLexer lexer = new ExprLexer(antlrInputStream);
+            ExprLexer lexer = new ExprLexer(antlrFileStream);
 
             CommonTokenStream commonToken = new CommonTokenStream(lexer);
             
@@ -71,6 +71,27 @@ namespace Kompilyatory
                 Ast = JsonConvert.DeserializeObject<List<AST>>(json);
 
                 LL.Gen();
+                
+                string command = "clang rukaro.ll -o rukaro.exe & rukaro.exe";
+
+                // Создаем новый процесс для выполнения команды
+                Process process = new Process();
+                process.StartInfo.FileName = "cmd.exe"; // Используем командную оболочку cmd
+                process.StartInfo.Arguments = $"/c {command}"; // /c используется для выполнения команды и выхода
+                process.StartInfo.UseShellExecute = false; // Устанавливаем false, чтобы не открывать окно командной строки
+                process.StartInfo.RedirectStandardOutput = true; // Необходимо установить true, чтобы получить вывод команды
+
+                // Запускаем процесс
+                process.Start();
+
+                // Получаем результат выполнения команды
+                string result = process.StandardOutput.ReadToEnd();
+
+                // Ожидаем завершения процесса
+                process.WaitForExit();
+
+                // Выводим результат выполнения команды
+                Console.WriteLine(result);
             }
         }
         public class AST

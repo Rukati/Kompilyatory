@@ -51,6 +51,13 @@
             <Generator>MSBuild:Compile</Generator>
             <SubType>Designer</SubType>
         </ApplicationDefinition>
+        <Compile Include="BlocksPage.xaml.cs">
+          <DependentUpon>BlocksPage.xaml</DependentUpon>
+        </Compile>
+        <Compile Include="Script\Interaction.cs" />
+        <Compile Include="Script\Move.cs" />
+        <Page Include="BlocksPage.xaml" />
+        <Page Include="CreateVariableDialogWindow.xaml" />
         <Page Include="MainWindow.xaml">
             <Generator>MSBuild:Compile</Generator>
             <SubType>Designer</SubType>
@@ -59,12 +66,39 @@
             <DependentUpon>App.xaml</DependentUpon>
             <SubType>Code</SubType>
         </Compile>
+        <Compile Include="CreateVariableDialogWindow.xaml.cs">
+          <DependentUpon>CreateVariableDialogWindow.xaml</DependentUpon>
+        </Compile>
         <Compile Include="MainWindow.xaml.cs">
             <DependentUpon>MainWindow.xaml</DependentUpon>
             <SubType>Code</SubType>
         </Compile>
+        <Page Include="PageBlocks\Control.xaml" />
+        <Page Include="PageBlocks\Cycles.xaml" />
+        <Page Include="PageBlocks\Function.xaml" />
+        <Page Include="PageBlocks\Math.xaml" />
+        <Page Include="PageBlocks\Notation.xaml" />
+        <Page Include="PageBlocks\Variables.xaml" />
     </ItemGroup>
     <ItemGroup>
+        <Compile Include="PageBlocks\Control.xaml.cs">
+          <DependentUpon>Control.xaml</DependentUpon>
+        </Compile>
+        <Compile Include="PageBlocks\Cycles.xaml.cs">
+          <DependentUpon>Cycles.xaml</DependentUpon>
+        </Compile>
+        <Compile Include="PageBlocks\Function.xaml.cs">
+          <DependentUpon>Function.xaml</DependentUpon>
+        </Compile>
+        <Compile Include="PageBlocks\Math.xaml.cs">
+          <DependentUpon>Math.xaml</DependentUpon>
+        </Compile>
+        <Compile Include="PageBlocks\Notation.xaml.cs">
+          <DependentUpon>Notation.xaml</DependentUpon>
+        </Compile>
+        <Compile Include="PageBlocks\Variables.xaml.cs">
+          <DependentUpon>Variables.xaml</DependentUpon>
+        </Compile>
         <Compile Include="Properties\AssemblyInfo.cs">
             <SubType>Code</SubType>
         </Compile>
@@ -79,7 +113,7 @@
         </EmbeddedResource>
     </ItemGroup>
     <ItemGroup>
-        <None Include="App.config"/>
+        <None Include="App.config" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\Kompilyatory.csproj">

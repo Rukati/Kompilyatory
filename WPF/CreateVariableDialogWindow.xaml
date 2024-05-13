@@ -1,0 +1,55 @@
+<Window x:Class="WPF.CreateVariableDialogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="clr-namespace:WPF"
+        mc:Ignorable="d"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow"
+        Topmost="True"
+        Title="Create variable" Height="145" Width="300">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="100"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Name -->
+        <Label Content="Name:" VerticalAlignment="Center"/>
+        <TextBox Grid.Row="0" Grid.Column="1" x:Name="NameVariable" VerticalAlignment="Center" Margin="5"/>
+        
+        <!-- Type -->
+        <Label Content="Type:" VerticalAlignment="Center" Grid.Row="1"/>
+        <ComboBox Grid.Row="1" Grid.Column="1" x:Name="TypeVariable" VerticalAlignment="Center" Margin="5">
+            <ComboBoxItem Content="int"/>
+            <ComboBoxItem Content="float"/>
+        </ComboBox>
+        
+        <!-- Enter / OK -->
+        <Border 
+                Grid.Row="2"
+                Grid.Column="1"
+                x:Name="CreateVariableOK"
+                BorderBrush="Black"
+                BorderThickness="1"
+                Background="LightGreen"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Width="25"
+                Height="25"
+                Margin="0,15,10,0"
+                MouseLeave="EnterCreateVariable_OnMouseLeave"
+                MouseEnter="EnterCreateVariable_OnMouseEnter">
+            <TextBlock
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">OK</TextBlock>
+        </Border>
+    </Grid>
+</Window>

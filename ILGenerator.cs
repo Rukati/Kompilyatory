@@ -140,33 +140,12 @@ namespace Kompilyatory
             LLVM.DumpModule(module);
 
             // Записываем модуль в файл .ll
-            LLVM.WriteBitcodeToFile(module, "output.ll");
+            LLVM.WriteBitcodeToFile(module, "rukaro.ll");
 
             // Освобождаем ресурсы
             LLVM.DisposeBuilder(builder);
             LLVM.DisposeModule(module);
             LLVM.ContextDispose(context);
-
-            string command = "clang output.ll -o output.exe & output.exe";
-
-            // Создаем новый процесс для выполнения команды
-            Process process = new Process();
-            process.StartInfo.FileName = "cmd.exe"; // Используем командную оболочку cmd
-            process.StartInfo.Arguments = $"/c {command}"; // /c используется для выполнения команды и выхода
-            process.StartInfo.UseShellExecute = false; // Устанавливаем false, чтобы не открывать окно командной строки
-            process.StartInfo.RedirectStandardOutput = true; // Необходимо установить true, чтобы получить вывод команды
-
-            // Запускаем процесс
-            process.Start();
-
-            // Получаем результат выполнения команды
-            string result = process.StandardOutput.ReadToEnd();
-
-            // Ожидаем завершения процесса
-            process.WaitForExit();
-
-            // Выводим результат выполнения команды
-            Console.WriteLine(result);
         }
 
         public static LLVMValueRef BuildVariable(ref Initialization initValue)

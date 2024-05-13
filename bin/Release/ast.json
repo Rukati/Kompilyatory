@@ -1,15 +1,122 @@
 [
   {
     "state": {
+      "function": {
+        "ID": "factorial",
+        "args": [
+          {
+            "type": "int",
+            "ID": "n"
+          }
+        ],
+        "type": "int",
+        "body": [
+          {
+            "state": {
+              "if": {
+                "left": [
+                  "$n"
+                ],
+                "right": [
+                  "1"
+                ],
+                "operator": "<=",
+                "body": [
+                  {
+                    "return": [
+                      [
+                        "1"
+                      ]
+                    ]
+                  }
+                ],
+                "else": {
+                  "body": []
+                }
+              }
+            }
+          },
+          {
+            "state": {
+              "initialization": {
+                "type": "int",
+                "ID": "result",
+                "expr": [
+                  "1"
+                ],
+                "func": {
+                  "ID": null,
+                  "argc": []
+                }
+              }
+            }
+          },
+          {
+            "state": {
+              "for": {
+                "equation": {
+                  "left": [
+                    "$i"
+                  ],
+                  "right": [
+                    "$n"
+                  ],
+                  "operator": "<="
+                },
+                "init": {
+                  "type": "int",
+                  "ID": "i",
+                  "expr": [
+                    "1"
+                  ]
+                },
+                "changeValue": {
+                  "ID": "i",
+                  "expr": [
+                    "1",
+                    "$i",
+                    "+"
+                  ]
+                },
+                "body": [
+                  {
+                    "state": {
+                      "changeValue": {
+                        "ID": "result",
+                        "expr": [
+                          "$i",
+                          "$result",
+                          "*"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "return": [
+          [
+            "$result"
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "state": {
       "initialization": {
         "type": "int",
-        "ID": "a",
-        "expr": [
-          "5"
-        ],
+        "ID": "res",
+        "expr": [],
         "func": {
-          "ID": null,
-          "argc": []
+          "ID": "factorial",
+          "argc": [
+            [
+              "5"
+            ]
+          ]
         }
       }
     }
@@ -19,10 +126,10 @@
       "writeln": {
         "Arguments": [
           {
-            "variable": "a"
+            "variable": "res"
           }
         ],
-        "ln": true
+        "ln": false
       }
     }
   }

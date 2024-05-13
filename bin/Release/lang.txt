@@ -1,5 +1,19 @@
+def factorial(int n) -> int
+begin
+    if ($n <= 1) then
+    begin
+        return 1;
+    end;
+    int result = 1;
+    for ( int i = 1; $i <= $n; $i = $i + 1)
+    begin
+        $result = $result * $i; 
+    end;
+    return $result;
+end.
+
 def Main 
 begin 
-    int a = 5;
-    writeln($a);
+    int res = factorial(5);
+    write($res);
 end.

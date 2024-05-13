@@ -3,68 +3,158 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:WPF"
         mc:Ignorable="d"
         Title="RPL" Height="500" Width="1000"
-        >
-    
-    <Grid Background="Transparent" MouseLeftButtonDown="UIElement_OnMouseLeftButtonDown">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="45"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="30"/>
-        </Grid.RowDefinitions>
-        <!-- Bar -->
-        <Grid Row="0" Background="Transparent" MouseLeftButtonDown="UIElement_OnMouseLeftButtonDown">
-            <Line x:Name="Line" Y1="45" Y2="45" Stroke="Black"/>
-            <TextBlock FontFamily="Rubik" FontSize="35" HorizontalAlignment="Center" Margin="0,10,0,0">
-                Rukaro
-            </TextBlock>
-        </Grid>
-        <!-- MainWindow -->
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="600"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <!-- Code User -->
-            <Grid Column="0" MouseLeftButtonDown="UIElement_OnMouseLeftButtonDown">
-                <TextBox x:Name="TextCode" FontSize="15"
-                         PreviewKeyDown="TextCode_OnPreviewKeyDown"
-                         FontFamily="Rubik" 
-                         AcceptsReturn="True" 
-                         TextWrapping="Wrap" 
-                         VerticalScrollBarVisibility="Auto"
-                >
-                </TextBox>
-            </Grid>
-            <!-- Code Result  -->
-            <Grid Column="1" MouseLeftButtonDown="UIElement_OnMouseLeftButtonDown">
-                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+        ResizeMode="NoResize"
+        WindowStyle="None">
+    <Border
+        BorderBrush="Black"
+        BorderThickness="1">
+        <Grid Background="Transparent">
+            <!-- MainWindow -->
+            <Grid>
+                <!-- Bar -->
+                <Grid
+                    Background="Azure"
+                    Height="50"
+                    VerticalAlignment="Top"
+                    MouseLeftButtonDown="Bar_OnMouseLeftButtonDown">
+                    <!-- Close -->
+                    <Grid
+                        Height="30"
+                        Width="30"
+                        Background="Transparent"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Margin="0,15,15,0"
+                        MouseLeave="CloseBlock_OnMouseLeave"
+                        MouseEnter="CloseBlock_OnMouseEnter"
+                        MouseLeftButtonDown="CloseBlock_OnMouseLeftButtonDown">
+                        <Border
+                            x:Name="CloseBlock"
+                            BorderBrush="Black"
+                            BorderThickness="1">
+                            <TextBlock
+                                x:Name="XBlock"
+                                Foreground="Brown"
+                                FontSize="30"
+                                Padding="0,0,1,2"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Center">
+                                X
+                            </TextBlock>
+                        </Border>
+                    </Grid>
+                    <!-- Blocks -->
+                    <Grid
+                        Height="30"
+                        Width="80"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Margin="15,15,0,0"
+                        Background="Transparent"
+                        MouseEnter="BLocks_OnMouseEnter"
+                        MouseLeave="BLocks_OnMouseLeave"
+                        MouseLeftButtonDown="BLocks_OnMouseLeftButtonDown">
+                        <Border BorderBrush="Black"
+                                BorderThickness="1"
+                                x:Name="BorderCode">
+
+                            <TextBlock
+                                x:Name="Block"
+                                Padding="0,2,1,0"
+                                TextAlignment="Center"
+                                FontSize="20"
+                                Height="30"
+                                Width="80"
+                                FontFamily="Rubik">
+                                Blocks
+                            </TextBlock>
+                        </Border>
+                    </Grid>
+                </Grid>
+                <!-- Code User -->
+                <Grid 
+                    Height="400"
+                      x:Name="GridCodeUser"
+                      VerticalAlignment="Top">
+                    <!-- Code -->
+                    <Grid
+                        Margin="0,50,0,0">
+                        <Border BorderBrush="Black"
+                                Margin="0,0,0,-1"
+                                BorderThickness="0,0,0,1">
+                            <!-- Block Code -->
+                            <Canvas
+                                x:Name="BlockCode"
+                                Background="WhiteSmoke"
+                                Width="998"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Height="350">
+                            </Canvas>
+                        </Border>
+                        <!-- Blocks for the User -->
+                        <Border
+                            BorderBrush="Black"
+                            BorderThickness="0,1,0,0">
+                            <Frame x:Name="PageWithBlocks"
+                                   VerticalAlignment="Top"
+                                   HorizontalAlignment="Left"
+                                   Width="200"
+                                   Height="350"
+                                   NavigationUIVisibility="Hidden" />
+                        </Border>
+                        <!-- Start -->
+                        <Grid
+                            Margin="0,0,15,15"
+                            Background="Transparent"
+                            MouseEnter="RUN_OnMouseEnter"
+                            MouseLeave="RUN_OnMouseLeave"
+                            MouseLeftButtonDown="Run_OnMouseLeftButtonDown"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom"
+                            Height="50" Width="50">
+                            <Border
+                                x:Name="_RUN"
+                                BorderBrush="Black"
+                                BorderThickness="1" />
+                            <TextBlock
+                                x:Name="_RUNTextBlock"
+                                Text="▶"
+                                Padding="3,0,0,2"
+                                FontSize="35"
+                                HorizontalAlignment="Center"
+                                TextAlignment="Center"
+                                VerticalAlignment="Center"
+                                Foreground="Black"
+                                IsHitTestVisible="False" />
+                        </Grid>
+                    </Grid>
+                </Grid>
+                <!-- Code Result  -->
+                <Grid VerticalAlignment="Bottom" Height="100" x:Name="GridCodeResult">
                     <TextBlock
-                        x:Name="TextResult"
-                        FontSize="15"
-                               TextWrapping="Wrap"
-                               FontFamily="Rubik">
-                    </TextBlock>
-                </ScrollViewer>
+                        MouseEnter="TextBlock_SizeCodeResult_OnMouseEnter"
+                        MouseLeave="TextBlock_SizeCodeResult_OnMouseLeave"
+                        Foreground="DimGray"
+                        FontSize="25"
+                        Text="▼"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Margin="0,-30,0,0"
+                        x:Name="TextBlock_SizeCodeResult"
+                        MouseLeftButtonDown="UIElement_OnMouseLeftButtonDown" />
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <TextBlock
+                            Padding="5,5,0,0"
+                            x:Name="TextResult"
+                            FontSize="15"
+                            TextWrapping="Wrap"
+                            FontFamily="Rubik" />
+                    </ScrollViewer>
+                </Grid>
             </Grid>
         </Grid>
-        <!-- Start -->
-        <Grid Row="2" HorizontalAlignment="Center" VerticalAlignment="Bottom" Height="30" Width="70">
-            <Rectangle  x:Name="Run"
-                        Fill="DarkGreen" 
-                        RadiusX="10" 
-                        RadiusY="10"
-                        MouseLeftButtonDown="Run_OnMouseLeftButtonDown"/>
-            <TextBlock Text="RUN" 
-                       FontSize="20" 
-                       HorizontalAlignment="Center" 
-                       TextAlignment="Center" 
-                       VerticalAlignment="Center" 
-                       Foreground="White"
-                       IsHitTestVisible="False"
-                    />
-        </Grid>
-    </Grid>
+    </Border>
 </Window>
